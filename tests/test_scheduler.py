@@ -114,6 +114,17 @@ class TickTests(unittest.TestCase):
         self.assertEqual(scheduler.tick(self.cfg, state, now, self.deliver).action, "disabled")
 
 
+class RandomizeTests(unittest.TestCase):
+    def test_rolled_settings_are_always_valid_and_usable(self):
+        for _ in range(200):
+            cfg = scheduler.randomize(Config())
+            cfg.validate()
+            self.assertFalse(cfg.show_next)
+            self.assertGreater(cfg.max_minutes, cfg.min_minutes)
+            nxt = scheduler.next_fire_after(cfg, at("2026-07-27", "10:00"))
+            self.assertTrue(cfg.allows(nxt))
+
+
 class MessageTests(unittest.TestCase):
     def test_bundled_pool_is_substantial_and_unique(self):
         pool = messages.load()

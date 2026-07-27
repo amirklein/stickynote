@@ -31,6 +31,8 @@ class Config:
     sound: str = ""
     # How many recent messages to avoid repeating.
     no_repeat_window: int = 25
+    # When off, `status` hides the exact next-nudge time so it stays a surprise.
+    show_next: bool = True
 
     @classmethod
     def load(cls) -> "Config":
