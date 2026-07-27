@@ -55,6 +55,7 @@ cheerbot config active_start 08:30       # active window, local time
 cheerbot config active_end 19:00
 cheerbot config active_days 0,1,2,3,4    # 0 = Monday ... 6 = Sunday
 cheerbot config title "Hey you"
+cheerbot config emoji off                # or a literal emoji, or "random"
 cheerbot config sound Glass              # any macOS alert sound, "" for silent
 cheerbot config enabled off
 ```
@@ -64,6 +65,7 @@ cheerbot config enabled off
 | `min_minutes` / `max_minutes` | 45 / 180 | Each notification lands at a uniformly random gap in this range |
 | `active_start` / `active_end` | 09:00 / 21:00 | Local-time window; wrapping past midnight (e.g. 22:00–02:00) works |
 | `active_days` | all | Days the window applies to |
+| `emoji` | `random` | Fills the emoji slot: `random` draws from the pool, `off` empties it, anything else is used literally |
 | `no_repeat_window` | 25 | How many recent messages to avoid repeating |
 | `show_next` | true | When off, `status` hides the exact next-nudge time |
 
@@ -73,18 +75,35 @@ Timing changes reschedule the pending nudge immediately.
 off, so even you don't know when the next one is coming. `cheerbot config` still
 shows what it picked if you want to peek.
 
-## Messages
+## Messages and emoji
 
-102 messages ship with it. To use your own:
+Notifications are built as `<emoji> <title>` on the bold line and the message
+underneath, so one looks like:
+
+```
+🌱 Cheerbot
+Progress counts even when nobody claps for it.
+```
+
+102 messages and 48 emoji ship with it, in two pools you can replace:
 
 ```bash
 cheerbot messages edit       # copies the defaults to ~/.config/cheerbot/messages.txt
 cheerbot messages add "Your text here"
 cheerbot messages list
+
+cheerbot emoji edit          # same, for ~/.config/cheerbot/emoji.txt
+cheerbot emoji add 🦆
+cheerbot emoji list
 ```
 
-Your file replaces the bundled set entirely. One message per line; blank lines
-and `#` comments are ignored.
+Your file replaces the bundled set entirely. One entry per line; blank lines and
+`#` comments are ignored. The emoji is drawn at random per notification and
+never repeats twice in a row. To preview a specific combination:
+
+```bash
+cheerbot now -e 🦆 -m "Just checking the layout"
+```
 
 ## How it works
 

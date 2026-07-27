@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 _TMP = tempfile.mkdtemp(prefix="cheerbot-test-")
 os.environ["CHEERBOT_HOME"] = _TMP
 
-from cheerbot import messages, scheduler  # noqa: E402
+from cheerbot import cli, messages, scheduler  # noqa: E402
 from cheerbot.config import Config, coerce  # noqa: E402
 from cheerbot.state import State  # noqa: E402
 
@@ -141,6 +141,38 @@ class MessageTests(unittest.TestCase):
         for i in range(10):
             state.remember(str(i), window=3)
         self.assertEqual(state.recent, ["7", "8", "9"])
+
+
+class EmojiTests(unittest.TestCase):
+    def test_bundled_pool_is_populated_and_unique(self):
+        pool = messages.load_emoji()
+        self.assertGreater(len(pool), 20)
+        self.assertEqual(len(pool), len(set(pool)))
+
+    def test_random_draws_from_the_pool(self):
+        pool = set(messages.load_emoji())
+        for _ in range(100):
+            self.assertIn(messages.pick_emoji("random"), pool)
+
+    def test_random_never_repeats_the_previous_one(self):
+        last = messages.pick_emoji("random")
+        for _ in range(100):
+            nxt = messages.pick_emoji("random", last)
+            self.assertNotEqual(nxt, last)
+            last = nxt
+
+    def test_off_values_empty_the_slot(self):
+        for setting in ("", "off", "none", "OFF", "  "):
+            self.assertEqual(messages.pick_emoji(setting), "")
+
+    def test_literal_value_is_used_verbatim(self):
+        self.assertEqual(messages.pick_emoji("🌵"), "🌵")
+        self.assertEqual(messages.pick_emoji("🌵", last="🌵"), "🌵")
+
+    def test_title_slot_composition(self):
+        cfg = Config(title="Cheerbot")
+        self.assertEqual(cli._title(cfg, "✨"), "✨ Cheerbot")
+        self.assertEqual(cli._title(cfg, ""), "Cheerbot")
 
 
 class ConfigTests(unittest.TestCase):
