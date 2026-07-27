@@ -95,6 +95,26 @@ def cmd_now(args) -> int:
     return 0
 
 
+def _reschedule(cfg: Config, note: str) -> None:
+    """Roll a new next-fire time and say so, without spoiling surprise mode."""
+    state = State.load()
+    nxt = scheduler.next_fire_after(cfg, datetime.now())
+    state.next_fire = nxt.timestamp()
+    state.save()
+    if cfg.show_next:
+        print(f"{note} around {nxt:%a %H:%M}")
+    else:
+        print(f"{note} at a time I'm not telling you")
+
+
+def cmd_surprise(_args) -> int:
+    cfg = scheduler.randomize(Config.load())
+    cfg.save()
+    _reschedule(cfg, "timing re-rolled; next nudge")
+    print("run `cheerbot config` if you'd rather see what it picked")
+    return 0
+
+
 def cmd_status(_args) -> int:
     cfg = Config.load()
     state = State.load()
@@ -114,11 +134,15 @@ def cmd_status(_args) -> int:
     print(f"window        {cfg.window_label()}")
     print(f"interval      every {cfg.min_minutes:g}-{cfg.max_minutes:g} minutes")
 
-    if state.next_fire:
+    if not state.next_fire:
+        print("next          not scheduled yet")
+    elif cfg.show_next:
         nxt = datetime.fromtimestamp(state.next_fire)
         print(f"next          {nxt:%a %d %b %H:%M} (in {_humanize(nxt - now)})")
     else:
-        print("next          not scheduled yet")
+        nxt = datetime.fromtimestamp(state.next_fire)
+        when = "today" if nxt.date() == now.date() else f"{nxt:%a %d %b}"
+        print(f"next          sometime {when} (surprise mode)")
 
     if state.last_fire:
         last = datetime.fromtimestamp(state.last_fire)
@@ -146,12 +170,8 @@ def cmd_start(args) -> int:
     launchagent.load()
     print(f"launch agent loaded ({paths.LABEL})")
 
-    state = State.load()
-    if state.next_fire is None:
-        nxt = scheduler.next_fire_after(cfg, datetime.now())
-        state.next_fire = nxt.timestamp()
-        state.save()
-        print(f"first nudge around {nxt:%a %H:%M}")
+    if State.load().next_fire is None:
+        _reschedule(cfg, "first nudge")
 
     if not args.no_app:
         print("sending a test notification so macOS asks for permission ...")
@@ -187,10 +207,8 @@ def cmd_resume(_args) -> int:
     cfg = _load_config()
     state = State.load()
     state.paused_until = None
-    nxt = scheduler.next_fire_after(cfg, datetime.now())
-    state.next_fire = nxt.timestamp()
     state.save()
-    print(f"resumed; next nudge around {nxt:%a %H:%M}")
+    _reschedule(cfg, "resumed; next nudge")
     return 0
 
 
@@ -224,11 +242,7 @@ def cmd_config(args) -> int:
 
     # Timing settings only take effect on the next schedule, so redo it now.
     if args.key in ("min_minutes", "max_minutes", "active_start", "active_end", "active_days"):
-        state = State.load()
-        nxt = scheduler.next_fire_after(cfg, datetime.now())
-        state.next_fire = nxt.timestamp()
-        state.save()
-        print(f"rescheduled; next nudge around {nxt:%a %H:%M}")
+        _reschedule(cfg, "rescheduled; next nudge")
     return 0
 
 
@@ -285,6 +299,7 @@ def build_parser() -> argparse.ArgumentParser:
     stop.add_argument("--purge", action="store_true", help="also delete the app bundle and plist")
 
     subs.add_parser("status", help="show schedule and health")
+    subs.add_parser("surprise", help="re-roll the timing settings at random")
 
     now = subs.add_parser("now", help="send an encouragement immediately")
     now.add_argument("-m", "--message", help="send this exact text instead of a random one")
@@ -310,6 +325,7 @@ _HANDLERS = {
     "start": cmd_start,
     "stop": cmd_stop,
     "status": cmd_status,
+    "surprise": cmd_surprise,
     "now": cmd_now,
     "tick": cmd_tick,
     "pause": cmd_pause,

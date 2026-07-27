@@ -40,6 +40,18 @@ def next_fire_after(cfg: Config, now: datetime) -> datetime:
     return jittered if cfg.allows(jittered) else window_start
 
 
+def randomize(cfg: Config) -> Config:
+    """Re-roll the timing settings so the rhythm itself is unpredictable."""
+    cfg.min_minutes = float(random.randint(20, 60))
+    cfg.max_minutes = cfg.min_minutes + float(random.randint(90, 300))
+    cfg.active_start = "{:02d}:{:02d}".format(random.randint(7, 10), random.choice([0, 15, 30, 45]))
+    cfg.active_end = "{:02d}:{:02d}".format(random.randint(20, 22), random.choice([0, 15, 30, 45]))
+    cfg.sound = random.choice(["", "", "Glass", "Hero", "Submarine", "Tink"])
+    cfg.show_next = False
+    cfg.validate()
+    return cfg
+
+
 @dataclass
 class TickResult:
     action: str  # "fired" | "waiting" | "paused" | "disabled" | "scheduled"

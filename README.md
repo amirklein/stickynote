@@ -36,6 +36,7 @@ ln -s "$PWD/bin/cheerbot" /usr/local/bin/cheerbot
 ```bash
 cheerbot status              # schedule, next nudge, health
 cheerbot now                 # encourage me right now
+cheerbot surprise            # re-roll the timing at random, and stop showing me when
 cheerbot pause 3h            # quiet for a while (also: 90m, 2d, today)
 cheerbot resume
 cheerbot stop                # unload the agent
@@ -64,8 +65,13 @@ cheerbot config enabled off
 | `active_start` / `active_end` | 09:00 / 21:00 | Local-time window; wrapping past midnight (e.g. 22:00–02:00) works |
 | `active_days` | all | Days the window applies to |
 | `no_repeat_window` | 25 | How many recent messages to avoid repeating |
+| `show_next` | true | When off, `status` hides the exact next-nudge time |
 
 Timing changes reschedule the pending nudge immediately.
+
+`cheerbot surprise` rolls all the timing settings for you and turns `show_next`
+off, so even you don't know when the next one is coming. `cheerbot config` still
+shows what it picked if you want to peek.
 
 ## Messages
 
