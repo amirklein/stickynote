@@ -27,6 +27,9 @@ class Config:
     # 0 = Monday ... 6 = Sunday.
     active_days: List[int] = field(default_factory=lambda: [0, 1, 2, 3, 4, 5, 6])
     title: str = "Cheerbot"
+    # "random" draws from the emoji pool, "off" empties the slot, anything else
+    # is used literally.
+    emoji: str = "random"
     # Any macOS alert sound name, or "" for silent.
     sound: str = ""
     # How many recent messages to avoid repeating.
