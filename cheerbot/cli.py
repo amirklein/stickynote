@@ -47,6 +47,11 @@ def _humanize(delta: timedelta) -> str:
     return f"{hours / 24:.1f}d"
 
 
+def _title(cfg: Config, emoji: str) -> str:
+    """The notification title, with the emoji slot filled if there is one."""
+    return f"{emoji} {cfg.title}".strip() if emoji else cfg.title
+
+
 def _load_config() -> Config:
     cfg = Config.load()
     try:
@@ -63,7 +68,10 @@ def cmd_tick(_args) -> int:
     now = datetime.now()
 
     def deliver(message: str) -> None:
-        notifier.send(cfg.title, message, cfg.sound)
+        # scheduler.tick saves state after this returns, which persists the
+        # emoji we just used so the next one differs.
+        state.last_emoji = messages.pick_emoji(cfg.emoji, state.last_emoji)
+        notifier.send(_title(cfg, state.last_emoji), message, cfg.sound)
 
     try:
         result = scheduler.tick(cfg, state, now, deliver)
@@ -80,18 +88,21 @@ def cmd_now(args) -> int:
     cfg = _load_config()
     state = State.load()
     message = args.message or messages.pick(messages.load(), state.recent)
+    emoji = args.emoji if args.emoji is not None else messages.pick_emoji(cfg.emoji, state.last_emoji)
+    title = _title(cfg, emoji)
     try:
-        transport = notifier.send(cfg.title, message, cfg.sound)
+        transport = notifier.send(title, message, cfg.sound)
     except notifier.NotifyError as exc:
         print(f"could not send notification: {exc}", file=sys.stderr)
         return 1
 
+    state.last_emoji = emoji
     if not args.message:
         state.remember(message, cfg.no_repeat_window)
         state.last_fire = datetime.now().timestamp()
         state.fired_count += 1
-        state.save()
-    print(f"sent via {transport}: {message}")
+    state.save()
+    print(f"sent via {transport}: {title} - {message}")
     return 0
 
 
@@ -149,6 +160,12 @@ def cmd_status(_args) -> int:
         print(f"last          {last:%a %d %b %H:%M} ({_humanize(now - last)} ago)")
     print(f"delivered     {state.fired_count}")
     print(f"messages      {len(messages.load())} from {messages.source_path()}")
+    if cfg.emoji.strip().lower() == "random":
+        print(f"emoji         random, {len(messages.load_emoji())} in the pool")
+    elif cfg.emoji.strip():
+        print(f"emoji         always {cfg.emoji}")
+    else:
+        print("emoji         off")
     print(f"transport     {notifier.transport()}")
     print(f"config        {paths.config_path()}")
     return 0
@@ -246,41 +263,57 @@ def cmd_config(args) -> int:
     return 0
 
 
-def cmd_messages(args) -> int:
+def _pool_command(args, entries, source, user_path, bundled_path) -> int:
+    """Shared list/path/edit/add handling for the message and emoji pools."""
     if args.action == "path":
-        print(messages.source_path())
+        print(source)
         return 0
 
     if args.action == "list":
-        for line in messages.load():
+        for line in entries:
             print(line)
         return 0
 
+    def ensure_user_copy() -> None:
+        if not user_path.exists():
+            user_path.parent.mkdir(parents=True, exist_ok=True)
+            user_path.write_text(bundled_path.read_text(encoding="utf-8"), encoding="utf-8")
+            print(f"copied the bundled set to {user_path}")
+
     if args.action == "edit":
-        target = paths.user_messages_path()
-        if not target.exists():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(
-                paths.BUNDLED_MESSAGES.read_text(encoding="utf-8"), encoding="utf-8"
-            )
-            print(f"copied the bundled set to {target}")
+        ensure_user_copy()
         editor = os.environ.get("EDITOR", "open -t")
-        subprocess.run(f'{editor} "{target}"', shell=True, check=False)
+        subprocess.run(f'{editor} "{user_path}"', shell=True, check=False)
         return 0
 
     if args.action == "add":
-        target = paths.user_messages_path()
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if not target.exists():
-            target.write_text(
-                paths.BUNDLED_MESSAGES.read_text(encoding="utf-8"), encoding="utf-8"
-            )
-        with target.open("a", encoding="utf-8") as handle:
+        ensure_user_copy()
+        with user_path.open("a", encoding="utf-8") as handle:
             handle.write(args.text.strip() + "\n")
-        print(f"added to {target}")
+        print(f"added to {user_path}")
         return 0
 
     return 2
+
+
+def cmd_messages(args) -> int:
+    return _pool_command(
+        args,
+        messages.load(),
+        messages.source_path(),
+        paths.user_messages_path(),
+        paths.BUNDLED_MESSAGES,
+    )
+
+
+def cmd_emoji(args) -> int:
+    return _pool_command(
+        args,
+        messages.load_emoji(),
+        messages.emoji_source_path(),
+        paths.user_emoji_path(),
+        paths.BUNDLED_EMOJI,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -303,6 +336,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     now = subs.add_parser("now", help="send an encouragement immediately")
     now.add_argument("-m", "--message", help="send this exact text instead of a random one")
+    now.add_argument("-e", "--emoji", help="use this exact emoji instead of a random one")
 
     subs.add_parser("tick", help="scheduler poll (run by launchd)")
 
@@ -318,6 +352,10 @@ def build_parser() -> argparse.ArgumentParser:
     msg.add_argument("action", choices=["list", "path", "edit", "add"], nargs="?", default="list")
     msg.add_argument("text", nargs="?", help="text to add when using: messages add")
 
+    emoji = subs.add_parser("emoji", help="inspect or extend the emoji pool")
+    emoji.add_argument("action", choices=["list", "path", "edit", "add"], nargs="?", default="list")
+    emoji.add_argument("text", nargs="?", help="emoji to add when using: emoji add")
+
     return parser
 
 
@@ -332,13 +370,14 @@ _HANDLERS = {
     "resume": cmd_resume,
     "config": cmd_config,
     "messages": cmd_messages,
+    "emoji": cmd_emoji,
 }
 
 
 def main(argv: Optional[list] = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.command == "messages" and args.action == "add" and not args.text:
-        print('usage: cheerbot messages add "your text here"', file=sys.stderr)
+    if args.command in ("messages", "emoji") and args.action == "add" and not args.text:
+        print(f'usage: cheerbot {args.command} add "..."', file=sys.stderr)
         return 2
     try:
         return _HANDLERS[args.command](args)
