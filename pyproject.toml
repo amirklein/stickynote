@@ -1,0 +1,21 @@
+[project]
+name = "cheerbot"
+version = "0.1.0"
+description = "Random encouraging notifications on macOS"
+requires-python = ">=3.9"
+# Standard library only, on purpose: it has to run under the system python
+# from a launchd job with no virtualenv.
+dependencies = []
+
+[project.scripts]
+cheerbot = "cheerbot.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["cheerbot"]
+
+[tool.setuptools.package-data]
+cheerbot = ["data/*"]
