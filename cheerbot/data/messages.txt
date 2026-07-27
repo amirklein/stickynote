@@ -1,0 +1,105 @@
+# Cheerbot's default encouragements. One per line; blank lines and #comments are ignored.
+# Run `cheerbot messages edit` to make your own copy in ~/.config/cheerbot/messages.txt.
+
+You've handled every single hard day so far. That's a perfect record.
+Progress counts even when nobody claps for it.
+The hard part you're avoiding is usually smaller than the dread around it.
+You don't have to feel ready. You just have to start.
+Whatever you finish today is enough for today.
+Being tired is not the same as being behind.
+Someone's day is better because of something you did and never heard about.
+You are allowed to do this imperfectly.
+The messy middle is still the middle. You're in it, not stuck at the start.
+Small and consistent beats big and occasional. You already know this.
+Your standards are high because you care. Don't let them become a stick.
+Rest is part of the work, not a break from it.
+You've figured out harder things with less information.
+Nobody else is keeping score as closely as you are.
+One good hour can turn a whole day around.
+Doubt shows up loudest right before something clicks.
+You're not behind. You're on your own timeline.
+The thing you built last month felt impossible last year.
+Give yourself the advice you'd give a friend in the same spot.
+Momentum starts with something embarrassingly small. Pick that thing.
+You can be proud of the effort even if the outcome is pending.
+Difficult and impossible are different words for a reason.
+Half-done is infinitely more than not started.
+Your future self is going to be glad you kept going today.
+It's okay to want it and find it hard at the same time.
+Curiosity beats pressure. Try being interested instead of worried.
+You've got more range than your worst day suggests.
+Take the win. Even the small one. Especially the small one.
+The work you do when you don't feel like it counts double.
+You don't need to earn your right to a break.
+Confusion is what learning feels like from the inside.
+A rough draft is a gift to your future self.
+You're doing something hard on purpose. That's not nothing.
+Stuck is a place, not an identity.
+Say the true thing. It's almost always simpler than the careful thing.
+You can change your mind. That's a strength, not a flaw.
+Ten minutes of focus is worth an afternoon of hovering.
+The version of this that exists beats the perfect one that doesn't.
+Your worth isn't a function of your output.
+You've been underestimating yourself for a while now. Just so you know.
+Deep breath. Shoulders down. Unclench your jaw.
+When did you last drink some water? Go do that.
+Look away from the screen for twenty seconds. Something far away.
+If it's still hard tomorrow, you'll still be capable tomorrow.
+Being the person who keeps showing up is an actual achievement.
+The problem will look different after a walk. It usually does.
+You don't owe anyone a perfect version of yourself.
+Comparison is a tax on your attention. Stop paying it.
+Ask the question. Someone else is wondering the same thing.
+You are more competent than you feel at 3pm.
+Done is a decision, not a discovery.
+Not every day has to be productive to be worthwhile.
+You survived every deadline you've ever panicked about.
+Whatever's on your mind right now, write it down and let it go for an hour.
+Your instincts have been right more often than you give them credit for.
+Hard things get easier. Not all at once, but they do.
+It's fine if today is a maintenance day.
+Start with the part you understand. The rest will follow.
+You're allowed to be a beginner at something.
+Effort you can't see is still effort. Compounding is quiet.
+The best thing you'll make this year probably starts as a bad idea.
+Kindness toward yourself is not lowered standards.
+Nobody has it figured out. Some people are just calmer about it.
+You are exactly as capable as you were the last time this worked out.
+Focus on the next right step, not the whole staircase.
+You have permission to make it simpler.
+Delete something today. It'll feel great.
+Perfectionism is procrastination with better PR.
+Whatever you're worried about, name it out loud. It shrinks.
+You've grown in ways that are hard to notice from the inside.
+Being stuck often means you're on the edge of understanding something.
+You're allowed to enjoy this.
+Sometimes the brave thing is to stop for the day.
+The people you admire also have days like this.
+Say no to one thing today. You'll feel lighter.
+Progress isn't linear, and neither are you.
+Your attention is the most valuable thing you own. Spend it deliberately.
+That thing you keep postponing? Fifteen minutes. Timer on. Go.
+You bring something to the room that nobody else does.
+Trust the version of you that made the plan.
+Good enough, shipped, and learned from beats perfect and theoretical.
+You've been doing this longer than you think.
+It's okay for it to take the time it takes.
+Every expert has a folder of things that didn't work.
+You're not lazy. You're probably just tired or unclear on the next step.
+Reduce the scope. Keep the promise.
+Celebrate the boring wins. They're the ones that hold everything up.
+Whatever happens today, you'll handle it. You always do.
+Interrupt the spiral. Stand up, move, come back.
+The story you're telling yourself right now might not be true.
+Being uncertain and moving anyway is the whole skill.
+You don't have to be motivated. You just have to begin.
+There's no prize for suffering through it alone. Ask for help.
+Today's small effort is tomorrow's obvious progress.
+You are not the worst thought you had today.
+Zoom out. Would this matter in a year?
+You've earned some patience with yourself.
+Keep going. Not because it's easy, but because it's yours.
+That was hard and you did it anyway. Remember that feeling.
+The fact that you care this much is a good sign, not a burden.
+Whatever you're building, someone out there needs it.
+You're doing better than you think. Genuinely.
