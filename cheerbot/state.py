@@ -15,6 +15,7 @@ class State:
     last_fire: Optional[float] = None
     paused_until: Optional[float] = None
     recent: List[str] = field(default_factory=list)
+    last_emoji: str = ""
     fired_count: int = 0
 
     @classmethod
