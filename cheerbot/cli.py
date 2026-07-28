@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional, Tuple
 
 from . import launchagent, messages, nativeapp, notifier, paths, scheduler
@@ -16,6 +17,7 @@ from .config import Config, coerce
 from .state import State
 
 _DURATION = re.compile(r"^(\d+(?:\.\d+)?)\s*([mhd])$", re.IGNORECASE)
+_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".heic", ".tiff", ".tif", ".gif", ".icns")
 
 
 def _parse_duration(raw: str) -> timedelta:
@@ -202,7 +204,7 @@ def _build_notifier(cfg: Config, force_applet: bool = False) -> str:
     if not force_applet and nativeapp.available():
         print("building Cheerbot.app with native badge support ...")
         try:
-            nativeapp.build(cfg.app_icon)
+            nativeapp.build(cfg.app_icon, cfg.bundle_generation)
             return "native"
         except nativeapp.BuildError as exc:
             print(f"native build failed ({exc}); falling back to the applet", file=sys.stderr)
@@ -276,6 +278,40 @@ def cmd_resume(_args) -> int:
     return 0
 
 
+def _set_app_icon(cfg: Config, value: str) -> int:
+    """Point app_icon at an emoji or image, and arrange for it to take effect.
+
+    macOS caches a bundle's notification icon at its first permission grant, so
+    a changed icon only appears under an identifier it has not seen before.
+    """
+    source = Path(value).expanduser()
+    # Anything path-shaped that does not exist is a typo, not an emoji.
+    if not source.is_file() and ("/" in value or source.suffix.lower() in _IMAGE_SUFFIXES):
+        print(f"no such image: {source}", file=sys.stderr)
+        return 1
+
+    if source.is_file():
+        try:
+            stored = nativeapp.adopt_icon(source)
+        except nativeapp.BuildError as exc:
+            print(f"could not read that image: {exc}", file=sys.stderr)
+            return 1
+        cfg.app_icon = str(stored)
+        described = f"image {source.name}"
+    else:
+        cfg.app_icon = value
+        described = value
+
+    cfg.bundle_generation += 1
+    cfg.save()
+
+    print(f"app_icon = {described}")
+    print(f"bundle identifier will become {nativeapp.bundle_id(cfg.bundle_generation)}")
+    print("run `cheerbot start` to rebuild; macOS will ask for notification")
+    print("permission again, and the old entry in System Settings can be deleted")
+    return 0
+
+
 def cmd_config(args) -> int:
     cfg = Config.load()
     if args.key is None:
@@ -300,6 +336,9 @@ def cmd_config(args) -> int:
     except ValueError as exc:
         print(f"invalid value: {exc}", file=sys.stderr)
         return 2
+
+    if args.key == "app_icon":
+        return _set_app_icon(cfg, args.value)
 
     cfg.save()
     print(f"{args.key} = {getattr(cfg, args.key)}")
