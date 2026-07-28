@@ -70,7 +70,8 @@ cheerbot config enabled off
 | `active_days` | all | Days the window applies to |
 | `emoji` | `random` | Which emoji: `random` draws from the pool, `off` empties the slot, anything else is used literally |
 | `emoji_placement` | `auto` | `badge`, `title`, `both`, `off`, or `auto` to use a badge when the transport supports one |
-| `app_icon` | 🌱 | The app's own icon. Changing it needs a rebuild under a new bundle identifier to take effect |
+| `app_icon` | 🌱 | The app's own icon: an emoji or a path to an image. Changing it bumps `bundle_generation` |
+| `bundle_generation` | 1 | Bumped automatically when `app_icon` changes, to get past the frozen icon cache |
 | `no_repeat_window` | 25 | How many recent messages to avoid repeating |
 | `show_next` | true | When off, `status` hides the exact next-nudge time |
 
@@ -108,6 +109,31 @@ new bundle identifier.
 
 So: the app icon is fixed (`app_icon`, default 🌱) and the badge beside the text
 is what varies.
+
+### Changing the app icon
+
+`app_icon` takes either an emoji or a path to an image:
+
+```bash
+cheerbot config app_icon ☀️
+cheerbot config app_icon ~/Pictures/my-icon.png
+cheerbot start                 # rebuild, then approve the new permission prompt
+```
+
+Images are copied to `~/.config/cheerbot/app_icon.png` so the icon keeps working
+after you move the original, and converted to real PNG on the way in — files
+named `.png` while containing JPEG data are common, and `iconutil` rejects them.
+Non-square images are padded rather than stretched.
+
+Because the icon is frozen per bundle identifier, changing it bumps
+`bundle_generation`, which gives macOS an identifier it has not cached. The cost
+is one fresh permission prompt each time, and a stale entry left in System
+Settings → Notifications that you can delete. Generation 1 keeps the original
+identifier, so existing installs are unaffected until they change their icon.
+
+A practical note on choosing one: notification icons render at roughly 40px, so
+detailed lettering turns to mush. One bold shape with high contrast survives;
+fine text does not, no matter how large the source file is.
 
 If you would rather have the emoji in the title text as before, set
 `cheerbot config emoji_placement title`. The default, `auto`, uses a badge when

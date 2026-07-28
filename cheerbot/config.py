@@ -34,10 +34,12 @@ class Config:
     # prefix), "both", "off", or "auto" to use a badge when the transport can
     # render one and fall back to the title when it cannot.
     emoji_placement: str = "auto"
-    # The app's own icon, baked in at install time. macOS freezes this the
-    # first time the bundle is granted notification permission, so changing it
-    # later needs a rebuild under a new bundle identifier.
+    # The app's own icon: an emoji, or a path to an image. Baked in at install
+    # time, since macOS freezes it at the first permission grant.
     app_icon: str = "🌱"
+    # Bumped whenever app_icon changes, to present macOS with a bundle
+    # identifier it has not cached an icon for. See nativeapp.bundle_id.
+    bundle_generation: int = 1
     # Any macOS alert sound name, or "" for silent.
     sound: str = ""
     # How many recent messages to avoid repeating.
