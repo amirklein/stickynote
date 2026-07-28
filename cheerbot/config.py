@@ -30,6 +30,14 @@ class Config:
     # "random" draws from the emoji pool, "off" empties the slot, anything else
     # is used literally.
     emoji: str = "random"
+    # Where the emoji goes: "badge" (image on the notification), "title" (text
+    # prefix), "both", "off", or "auto" to use a badge when the transport can
+    # render one and fall back to the title when it cannot.
+    emoji_placement: str = "auto"
+    # The app's own icon, baked in at install time. macOS freezes this the
+    # first time the bundle is granted notification permission, so changing it
+    # later needs a rebuild under a new bundle identifier.
+    app_icon: str = "🌱"
     # Any macOS alert sound name, or "" for silent.
     sound: str = ""
     # How many recent messages to avoid repeating.
@@ -66,6 +74,9 @@ class Config:
             raise ValueError("active_days must contain at least one day")
         if any(d < 0 or d > 6 for d in self.active_days):
             raise ValueError("active_days must be integers 0 (Mon) through 6 (Sun)")
+        allowed = ("auto", "badge", "title", "both", "off")
+        if self.emoji_placement.strip().lower() not in allowed:
+            raise ValueError(f"emoji_placement must be one of {', '.join(allowed)}")
         _parse_hhmm(self.active_start)
         _parse_hhmm(self.active_end)
 

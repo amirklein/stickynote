@@ -7,10 +7,11 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 
-from . import launchagent, messages, notifier, paths, scheduler
+from . import launchagent, messages, nativeapp, notifier, paths, scheduler
 from .config import Config, coerce
 from .state import State
 
@@ -47,9 +48,9 @@ def _humanize(delta: timedelta) -> str:
     return f"{hours / 24:.1f}d"
 
 
-def _title(cfg: Config, emoji: str) -> str:
-    """The notification title, with the emoji slot filled if there is one."""
-    return f"{emoji} {cfg.title}".strip() if emoji else cfg.title
+def _compose(cfg: Config, emoji: str) -> Tuple[str, str]:
+    """Resolve an emoji into the notification's title text and badge image."""
+    return notifier.compose(cfg.title, emoji, notifier.resolve_placement(cfg.emoji_placement))
 
 
 def _load_config() -> Config:
@@ -71,7 +72,8 @@ def cmd_tick(_args) -> int:
         # scheduler.tick saves state after this returns, which persists the
         # emoji we just used so the next one differs.
         state.last_emoji = messages.pick_emoji(cfg.emoji, state.last_emoji)
-        notifier.send(_title(cfg, state.last_emoji), message, cfg.sound)
+        title, badge = _compose(cfg, state.last_emoji)
+        notifier.send(title, message, cfg.sound, badge)
 
     try:
         result = scheduler.tick(cfg, state, now, deliver)
@@ -89,9 +91,10 @@ def cmd_now(args) -> int:
     state = State.load()
     message = args.message or messages.pick(messages.load(), state.recent)
     emoji = args.emoji if args.emoji is not None else messages.pick_emoji(cfg.emoji, state.last_emoji)
-    title = _title(cfg, emoji)
+    title, badge = _compose(cfg, emoji)
+    before = nativeapp.log_size()
     try:
-        transport = notifier.send(title, message, cfg.sound)
+        transport = notifier.send(title, message, cfg.sound, badge)
     except notifier.NotifyError as exc:
         print(f"could not send notification: {exc}", file=sys.stderr)
         return 1
@@ -102,7 +105,17 @@ def cmd_now(args) -> int:
         state.last_fire = datetime.now().timestamp()
         state.fired_count += 1
     state.save()
-    print(f"sent via {transport}: {title} - {message}")
+    label = f"{title} [badge {badge}]" if badge else title
+    print(f"sent via {transport}: {label} - {message}")
+
+    # Native delivery is asynchronous, so the only way to notice a refused
+    # notification is to watch the helper's log.
+    if transport == "native":
+        time.sleep(2.0)
+        failure = nativeapp.recent_failure(before)
+        if failure:
+            print(f"the notifier reported: {failure}", file=sys.stderr)
+            return 1
     return 0
 
 
@@ -166,9 +179,41 @@ def cmd_status(_args) -> int:
         print(f"emoji         always {cfg.emoji}")
     else:
         print("emoji         off")
-    print(f"transport     {notifier.transport()}")
+
+    placement = notifier.resolve_placement(cfg.emoji_placement)
+    detail = "as a badge image" if placement == "badge" else f"in the {placement}"
+    if placement == "both":
+        detail = "as a badge image and in the title"
+    print(f"placement     {detail}" if placement != "off" else "placement     off")
+
+    chosen = notifier.transport()
+    note = {
+        "native": "native app, badges supported",
+        "applet": "applescript applet, text only",
+        "osascript": "osascript fallback, text only",
+    }[chosen]
+    print(f"transport     {note}")
     print(f"config        {paths.config_path()}")
     return 0
+
+
+def _build_notifier(cfg: Config, force_applet: bool = False) -> str:
+    """Build the best notification bundle this machine can manage."""
+    if not force_applet and nativeapp.available():
+        print("building Cheerbot.app with native badge support ...")
+        try:
+            nativeapp.build(cfg.app_icon)
+            return "native"
+        except nativeapp.BuildError as exc:
+            print(f"native build failed ({exc}); falling back to the applet", file=sys.stderr)
+
+    if not force_applet:
+        print("swiftc not found, so badges are unavailable; building the applet instead")
+        print("(install the Xcode Command Line Tools and rerun to get badges)")
+    else:
+        print("building the AppleScript applet ...")
+    launchagent.build_applet()
+    return "applet"
 
 
 def cmd_start(args) -> int:
@@ -180,8 +225,7 @@ def cmd_start(args) -> int:
         cfg.save()
 
     if not args.no_app:
-        print("building Cheerbot.app ...")
-        launchagent.build_app()
+        _build_notifier(cfg, force_applet=args.applet)
 
     launchagent.write_plist()
     launchagent.load()
@@ -192,10 +236,13 @@ def cmd_start(args) -> int:
 
     if not args.no_app:
         print("sending a test notification so macOS asks for permission ...")
+        badge = messages.pick_emoji(cfg.emoji) if notifier.supports_badges() else ""
+        title, badge = _compose(cfg, badge)
         try:
-            notifier.send(cfg.title, "Cheerbot is on. I'll check in now and then.", cfg.sound)
+            notifier.send(title, "Cheerbot is on. I'll check in now and then.", cfg.sound, badge)
         except notifier.NotifyError as exc:
             print(f"(test notification failed: {exc})", file=sys.stderr)
+        print("approve the permission prompt, or you'll get nothing but silence")
     return 0
 
 
@@ -323,10 +370,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subs = parser.add_subparsers(dest="command", required=True)
 
-    subs.add_parser("start", help="install the background agent and start nudging").add_argument(
+    start = subs.add_parser("start", help="install the background agent and start nudging")
+    start.add_argument(
         "--no-app",
         action="store_true",
         help="skip building Cheerbot.app (notifications fall back to osascript)",
+    )
+    start.add_argument(
+        "--applet",
+        action="store_true",
+        help="force the AppleScript applet instead of the native app (no badges)",
     )
     stop = subs.add_parser("stop", help="stop the background agent")
     stop.add_argument("--purge", action="store_true", help="also delete the app bundle and plist")
