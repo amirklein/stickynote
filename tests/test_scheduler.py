@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 _TMP = tempfile.mkdtemp(prefix="cheerbot-test-")
 os.environ["CHEERBOT_HOME"] = _TMP
 
-from cheerbot import messages, nativeapp, notifier, scheduler  # noqa: E402
+from cheerbot import cli, messages, nativeapp, notifier, scheduler  # noqa: E402
 from cheerbot.config import Config, coerce  # noqa: E402
 from cheerbot.state import State  # noqa: E402
 
@@ -247,6 +247,32 @@ class TransportTests(unittest.TestCase):
         title, badge = notifier.compose("Cheerbot", "✨", placement)
         self.assertEqual(badge, "")
         self.assertEqual(title, "✨ Cheerbot")
+
+
+class AppIconTests(unittest.TestCase):
+    def test_generation_one_keeps_the_original_identifier(self):
+        """Existing installs must not be pushed onto a new bundle id."""
+        self.assertEqual(nativeapp.bundle_id(1), "dev.cheerbot.notifier")
+        self.assertEqual(nativeapp.bundle_id(0), "dev.cheerbot.notifier")
+
+    def test_later_generations_are_distinct(self):
+        ids = {nativeapp.bundle_id(gen) for gen in range(1, 6)}
+        self.assertEqual(len(ids), 5)
+        self.assertEqual(nativeapp.bundle_id(2), "dev.cheerbot.notifier2")
+
+    def test_path_shaped_values_are_recognised(self):
+        """A path that does not exist should be rejected, not taken as an emoji."""
+        self.assertTrue(any(
+            "/nope/icon.png".endswith(suffix) for suffix in cli._IMAGE_SUFFIXES
+        ))
+        self.assertFalse(any("🌱".endswith(suffix) for suffix in cli._IMAGE_SUFFIXES))
+
+    def test_bundle_generation_survives_a_config_roundtrip(self):
+        cfg = Config(app_icon="/tmp/icon.png", bundle_generation=4)
+        cfg.save()
+        loaded = Config.load()
+        self.assertEqual(loaded.bundle_generation, 4)
+        self.assertEqual(loaded.app_icon, "/tmp/icon.png")
 
 
 class ConfigTests(unittest.TestCase):
