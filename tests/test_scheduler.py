@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 _TMP = tempfile.mkdtemp(prefix="cheerbot-test-")
 os.environ["CHEERBOT_HOME"] = _TMP
 
-from cheerbot import cli, messages, scheduler  # noqa: E402
+from cheerbot import messages, nativeapp, notifier, scheduler  # noqa: E402
 from cheerbot.config import Config, coerce  # noqa: E402
 from cheerbot.state import State  # noqa: E402
 
@@ -169,10 +169,84 @@ class EmojiTests(unittest.TestCase):
         self.assertEqual(messages.pick_emoji("🌵"), "🌵")
         self.assertEqual(messages.pick_emoji("🌵", last="🌵"), "🌵")
 
-    def test_title_slot_composition(self):
-        cfg = Config(title="Cheerbot")
-        self.assertEqual(cli._title(cfg, "✨"), "✨ Cheerbot")
-        self.assertEqual(cli._title(cfg, ""), "Cheerbot")
+
+class PlacementTests(unittest.TestCase):
+    def test_badge_placement_keeps_the_title_clean(self):
+        self.assertEqual(notifier.compose("Cheerbot", "✨", "badge"), ("Cheerbot", "✨"))
+
+    def test_title_placement_prefixes_the_text(self):
+        self.assertEqual(notifier.compose("Cheerbot", "✨", "title"), ("✨ Cheerbot", ""))
+
+    def test_both_places_it_twice(self):
+        self.assertEqual(notifier.compose("Cheerbot", "✨", "both"), ("✨ Cheerbot", "✨"))
+
+    def test_off_and_empty_emoji_yield_nothing(self):
+        self.assertEqual(notifier.compose("Cheerbot", "✨", "off"), ("Cheerbot", ""))
+        self.assertEqual(notifier.compose("Cheerbot", "", "badge"), ("Cheerbot", ""))
+
+    def test_auto_follows_what_the_transport_supports(self):
+        original = notifier.supports_badges
+        try:
+            notifier.supports_badges = lambda: True
+            self.assertEqual(notifier.resolve_placement("auto"), "badge")
+            notifier.supports_badges = lambda: False
+            self.assertEqual(notifier.resolve_placement("auto"), "title")
+        finally:
+            notifier.supports_badges = original
+
+    def test_explicit_placement_is_not_overridden(self):
+        self.assertEqual(notifier.resolve_placement("title"), "title")
+        self.assertEqual(notifier.resolve_placement("off"), "off")
+
+    def test_config_rejects_unknown_placement(self):
+        with self.assertRaises(ValueError):
+            Config(emoji_placement="sideways").validate()
+        Config(emoji_placement="badge").validate()
+
+
+class TransportTests(unittest.TestCase):
+    """Transport selection, with the filesystem checks stubbed out."""
+
+    def setUp(self):
+        self.native = nativeapp.is_installed
+        self.applet = notifier._applet_installed
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        nativeapp.is_installed = self.native
+        notifier._applet_installed = self.applet
+
+    def use(self, native: bool, applet: bool):
+        nativeapp.is_installed = lambda: native
+        notifier._applet_installed = lambda: applet
+
+    def test_native_wins_when_present(self):
+        self.use(native=True, applet=True)
+        self.assertEqual(notifier.transport(), "native")
+        self.assertTrue(notifier.supports_badges())
+
+    def test_applet_is_next_best(self):
+        self.use(native=False, applet=True)
+        self.assertEqual(notifier.transport(), "applet")
+        self.assertFalse(notifier.supports_badges())
+
+    def test_osascript_is_the_last_resort(self):
+        self.use(native=False, applet=False)
+        self.assertEqual(notifier.transport(), "osascript")
+
+    def test_auto_placement_degrades_without_the_native_app(self):
+        self.use(native=False, applet=True)
+        self.assertEqual(notifier.resolve_placement("auto"), "title")
+        self.use(native=True, applet=False)
+        self.assertEqual(notifier.resolve_placement("auto"), "badge")
+
+    def test_badge_request_is_dropped_by_text_only_transports(self):
+        """A badge must never leak into the body text of a text-only transport."""
+        self.use(native=False, applet=True)
+        placement = notifier.resolve_placement("auto")
+        title, badge = notifier.compose("Cheerbot", "✨", placement)
+        self.assertEqual(badge, "")
+        self.assertEqual(title, "✨ Cheerbot")
 
 
 class ConfigTests(unittest.TestCase):
