@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 _TMP = tempfile.mkdtemp(prefix="cheerbot-test-")
 os.environ["CHEERBOT_HOME"] = _TMP
 
-from cheerbot import cli, messages, nativeapp, notifier, scheduler  # noqa: E402
+from cheerbot import activity, cli, messages, nativeapp, notifier, scheduler  # noqa: E402
 from cheerbot.config import Config, coerce  # noqa: E402
 from cheerbot.state import State  # noqa: E402
 
@@ -123,6 +123,88 @@ class RandomizeTests(unittest.TestCase):
             self.assertGreater(cfg.max_minutes, cfg.min_minutes)
             nxt = scheduler.next_fire_after(cfg, at("2026-07-27", "10:00"))
             self.assertTrue(cfg.allows(nxt))
+
+
+class ToneTests(unittest.TestCase):
+    def test_each_tone_loads_a_usable_pool(self):
+        for tone in ("funny", "sincere", "mixed"):
+            pool = messages.load(tone)
+            self.assertGreater(len(pool), 50, tone)
+            self.assertEqual(len(pool), len(set(pool)), f"{tone} has duplicates")
+
+    def test_mixed_is_the_union_of_both(self):
+        self.assertEqual(
+            len(messages.load("mixed")),
+            len(messages.load("funny")) + len(messages.load("sincere")),
+        )
+
+    def test_funny_and_sincere_do_not_overlap(self):
+        self.assertFalse(set(messages.load("funny")) & set(messages.load("sincere")))
+
+    def test_config_rejects_an_unknown_tone(self):
+        with self.assertRaises(ValueError):
+            Config(tone="sarcastic").validate()
+
+
+class ActivityGateTests(unittest.TestCase):
+    def setUp(self):
+        self.cfg = Config(min_minutes=30, max_minutes=60, require_activity=True)
+        self.sent = []
+        self.original = activity.is_active
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        activity.is_active = self.original
+
+    def deliver(self, message):
+        self.sent.append(message)
+
+    def due_state(self, now):
+        return State(next_fire=(now - timedelta(minutes=1)).timestamp())
+
+    def test_held_back_while_away(self):
+        now = at("2026-07-27", "10:00")
+        activity.is_active = lambda _: False
+        state = self.due_state(now)
+        result = scheduler.tick(self.cfg, state, now, self.deliver)
+        self.assertEqual(result.action, "idle")
+        self.assertEqual(self.sent, [])
+
+    def test_a_held_nudge_is_not_lost(self):
+        """The pending fire time must survive, so it lands once you return."""
+        now = at("2026-07-27", "10:00")
+        activity.is_active = lambda _: False
+        state = self.due_state(now)
+        due_at = state.next_fire
+        scheduler.tick(self.cfg, state, now, self.deliver)
+        self.assertEqual(state.next_fire, due_at)
+
+        activity.is_active = lambda _: True
+        result = scheduler.tick(self.cfg, state, now, self.deliver)
+        self.assertEqual(result.action, "fired")
+        self.assertEqual(len(self.sent), 1)
+
+    def test_gate_can_be_switched_off(self):
+        now = at("2026-07-27", "10:00")
+        activity.is_active = lambda _: False
+        self.cfg.require_activity = False
+        result = scheduler.tick(self.cfg, self.due_state(now), now, self.deliver)
+        self.assertEqual(result.action, "fired")
+
+    def test_unreadable_idle_time_fails_open(self):
+        """Never go permanently silent because the probe stopped working."""
+        original = activity.idle_seconds
+        try:
+            activity.idle_seconds = lambda: None
+            activity.screen_locked = lambda: False
+            self.assertTrue(activity.is_active(5))
+        finally:
+            activity.idle_seconds = original
+
+    def test_idle_probe_returns_a_plausible_number(self):
+        idle = activity.idle_seconds()
+        self.assertIsNotNone(idle, "HIDIdleTime should be readable on macOS")
+        self.assertGreaterEqual(idle, 0)
 
 
 class MessageTests(unittest.TestCase):

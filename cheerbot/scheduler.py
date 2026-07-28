@@ -54,7 +54,7 @@ def randomize(cfg: Config) -> Config:
 
 @dataclass
 class TickResult:
-    action: str  # "fired" | "waiting" | "paused" | "disabled" | "scheduled"
+    action: str  # fired | waiting | paused | disabled | scheduled | idle
     message: Optional[str] = None
     next_fire: Optional[datetime] = None
     detail: str = ""
@@ -66,7 +66,7 @@ def tick(cfg: Config, state: State, now: datetime, deliver) -> TickResult:
     `deliver` is called with the chosen message only when it is time to fire;
     injecting it keeps this function pure enough to test.
     """
-    from . import messages
+    from . import activity, messages
 
     timestamp = now.timestamp()
 
@@ -96,7 +96,12 @@ def tick(cfg: Config, state: State, now: datetime, deliver) -> TickResult:
         state.save()
         return TickResult("scheduled", next_fire=scheduled, detail="outside active hours")
 
-    message = messages.pick(messages.load(), state.recent)
+    if cfg.require_activity and not activity.is_active(cfg.max_idle_minutes):
+        # Hold the nudge rather than rescheduling it, so it lands shortly after
+        # you come back instead of being lost to an empty desk.
+        return TickResult("idle", detail=activity.describe(cfg.max_idle_minutes))
+
+    message = messages.pick(messages.load(cfg.tone), state.recent)
     deliver(message)
 
     scheduled = next_fire_after(cfg, now)
