@@ -23,12 +23,22 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from . import paths
 
 BUNDLE_ID = "dev.cheerbot.notifier"
 BINARY_NAME = "cheerbot-notifier"
+
+
+def bundle_id(generation: int = 1) -> str:
+    """The bundle identifier for a given icon generation.
+
+    macOS freezes a bundle's notification icon at its first permission grant,
+    so the only way to change the icon later is to present a new identifier.
+    Generation 1 keeps the original id so existing installs are untouched.
+    """
+    return BUNDLE_ID if generation <= 1 else f"{BUNDLE_ID}{generation}"
 SOURCE = paths.REPO_ROOT / "notifier" / "CheerbotNotifier.swift"
 
 # Sizes iconutil expects in an .iconset, each also needed at @2x.
@@ -74,12 +84,48 @@ def _compile(destination: Path) -> None:
     _run([swiftc(), "-O", str(SOURCE), "-o", str(destination)])
 
 
-def _build_icon(binary: Path, emoji: str, resources: Path) -> None:
-    """Render an emoji into the .icns the notification banner will show."""
+def _dimensions(image: Path) -> Tuple[int, int]:
+    result = _run(["/usr/bin/sips", "-g", "pixelWidth", "-g", "pixelHeight", str(image)])
+    values = {}
+    for line in result.stdout.splitlines():
+        key, _, value = line.strip().partition(": ")
+        if value.isdigit():
+            values[key] = int(value)
+    return values.get("pixelWidth", 0), values.get("pixelHeight", 0)
+
+
+def _prepare_source(icon: str, binary: Path, work: Path) -> Path:
+    """Produce a square PNG to build the .icns from.
+
+    `icon` is either a path to an image or an emoji to render. Images are
+    converted to real PNG regardless of their extension, since files are
+    routinely named .png while holding JPEG data, and iconutil rejects those.
+    """
+    base = work / "base.png"
+    candidate = Path(icon).expanduser()
+    if not candidate.is_file():
+        _run([str(binary), "render", icon, str(base)])
+        return base
+
+    _run(["/usr/bin/sips", "-s", "format", "png", str(candidate), "--out", str(base)])
+
+    width, height = _dimensions(base)
+    if width and height and width != height:
+        # Pad rather than crop: sips -z would stretch, and cropping silently
+        # discards whatever sits at the edges of the artwork.
+        side = max(width, height)
+        _run([
+            "/usr/bin/sips", "--padToHeightWidth", str(side), str(side),
+            "--padColor", "FFFFFF", str(base), "--out", str(base),
+        ])
+    return base
+
+
+def _build_icon(binary: Path, icon: str, resources: Path) -> None:
+    """Turn an emoji or image into the .icns the notification banner shows."""
     with tempfile.TemporaryDirectory() as work_dir:
         work = Path(work_dir)
-        base = work / "base.png"
-        _run([str(binary), "render", emoji, str(base)])
+        base = _prepare_source(icon, binary, work)
 
         iconset = work / "AppIcon.iconset"
         iconset.mkdir()
@@ -87,7 +133,8 @@ def _build_icon(binary: Path, emoji: str, resources: Path) -> None:
             for scale, suffix in ((1, ""), (2, "@2x")):
                 pixels = size * scale
                 _run([
-                    "/usr/bin/sips", "-z", str(pixels), str(pixels), str(base),
+                    "/usr/bin/sips", "-s", "format", "png",
+                    "-z", str(pixels), str(pixels), str(base),
                     "--out", str(iconset / f"icon_{size}x{size}{suffix}.png"),
                 ])
 
@@ -97,11 +144,11 @@ def _build_icon(binary: Path, emoji: str, resources: Path) -> None:
         shutil.copyfile(icns, resources / "AppIcon.icns")
 
 
-def _write_info_plist(contents: Path) -> None:
+def _write_info_plist(contents: Path, generation: int) -> None:
     info = {
         "CFBundleName": paths.APP_NAME,
         "CFBundleDisplayName": paths.APP_NAME,
-        "CFBundleIdentifier": BUNDLE_ID,
+        "CFBundleIdentifier": bundle_id(generation),
         "CFBundleExecutable": BINARY_NAME,
         "CFBundleIconFile": "AppIcon",
         "CFBundlePackageType": "APPL",
@@ -115,8 +162,12 @@ def _write_info_plist(contents: Path) -> None:
         plistlib.dump(info, handle)
 
 
-def build(icon_emoji: str = "🌱") -> Path:
-    """Compile and assemble ~/Applications/Cheerbot.app, ready but unlaunched."""
+def build(icon: str = "🌱", generation: int = 1) -> Path:
+    """Compile and assemble ~/Applications/Cheerbot.app, ready but unlaunched.
+
+    The icon is written before the bundle is ever launched, which is required:
+    macOS caches it at the first permission grant and never re-reads it.
+    """
     app = paths.app_path()
     app.parent.mkdir(parents=True, exist_ok=True)
     if app.exists():
@@ -125,8 +176,8 @@ def build(icon_emoji: str = "🌱") -> Path:
     contents = app / "Contents"
     binary = contents / "MacOS" / BINARY_NAME
     _compile(binary)
-    _build_icon(binary, icon_emoji or "🌱", contents / "Resources")
-    _write_info_plist(contents)
+    _build_icon(binary, icon or "🌱", contents / "Resources")
+    _write_info_plist(contents, generation)
 
     # Ad-hoc signing is enough for local use, but the bundle must be signed
     # after its contents are final or macOS will refuse to launch it.
@@ -138,6 +189,19 @@ def build(icon_emoji: str = "🌱") -> Path:
         str(app),
     ], check=False)
     return app
+
+
+def adopt_icon(source: Path) -> Path:
+    """Copy a chosen image into the config directory as a stable PNG.
+
+    Keeps the icon working after the original is moved out of Downloads, and
+    normalises the format up front so a mislabelled JPEG cannot fail the build
+    later.
+    """
+    destination = paths.home() / "app_icon.png"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    _run(["/usr/bin/sips", "-s", "format", "png", str(source), "--out", str(destination)])
+    return destination
 
 
 def log_path() -> Path:
