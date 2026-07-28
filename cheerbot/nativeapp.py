@@ -229,7 +229,7 @@ def log_path() -> Path:
     return Path.home() / ".config" / "cheerbot" / "notifier.log"
 
 
-def send(title: str, body: str, emoji: str = "", sound: str = "") -> None:
+def send(title: str, body: str, emoji: str = "", sound: str = "", linger: float = 0.0) -> None:
     """Launch the helper to post one notification.
 
     `-n` forces a fresh instance: `open` would otherwise just activate the
@@ -243,6 +243,8 @@ def send(title: str, body: str, emoji: str = "", sound: str = "") -> None:
         args += ["--emoji", emoji]
     if sound:
         args += ["--sound", sound]
+    if linger > 0:
+        args += ["--linger", str(linger)]
 
     result = subprocess.run(args, capture_output=True, text=True)
     if result.returncode != 0:
