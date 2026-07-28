@@ -38,6 +38,7 @@ ln -s "$PWD/bin/cheerbot" /usr/local/bin/cheerbot
 ```bash
 cheerbot status              # schedule, next nudge, health
 cheerbot now                 # encourage me right now
+cheerbot demo                # watch a burst of them up close, without touching the schedule
 cheerbot surprise            # re-roll the timing at random, and stop showing me when
 cheerbot pause 3h            # quiet for a while (also: 90m, 2d, today)
 cheerbot resume
@@ -57,6 +58,9 @@ cheerbot config active_start 08:30       # active window, local time
 cheerbot config active_end 19:00
 cheerbot config active_days 0,1,2,3,4    # 0 = Monday ... 6 = Sunday
 cheerbot config title "Hey you"
+cheerbot config tone sincere             # funny | sincere | mixed
+cheerbot config max_idle_minutes 10      # how long away before nudges are held
+cheerbot config require_activity off     # nudge even when you are not there
 cheerbot config emoji off                # or a literal emoji, or "random"
 cheerbot config sound Glass              # any macOS alert sound, "" for silent
 cheerbot config emoji_placement title    # badge | title | both | off | auto
@@ -68,6 +72,9 @@ cheerbot config enabled off
 | `min_minutes` / `max_minutes` | 45 / 180 | Each notification lands at a uniformly random gap in this range |
 | `active_start` / `active_end` | 09:00 / 21:00 | Local-time window; wrapping past midnight (e.g. 22:00–02:00) works |
 | `active_days` | all | Days the window applies to |
+| `tone` | `funny` | Which bundled pool to draw from: `funny`, `sincere`, or `mixed`. Ignored once you write your own messages file |
+| `require_activity` | true | Hold a nudge back unless you are actually at the machine |
+| `max_idle_minutes` | 5 | How long without keyboard or mouse input counts as away |
 | `emoji` | `random` | Which emoji: `random` draws from the pool, `off` empties the slot, anything else is used literally |
 | `emoji_placement` | `auto` | `badge`, `title`, `both`, `off`, or `auto` to use a badge when the transport supports one |
 | `app_icon` | 🌱 | The app's own icon: an emoji or a path to an image. Changing it bumps `bundle_generation` |
@@ -147,10 +154,11 @@ machines without Xcode Command Line Tools still get an emoji.
 
 ## Messages and emoji
 
-102 messages and 48 emoji ship with it, in two pools you can replace:
+Two bundled message pools ship with it: 91 funny ones (the default) and 102
+straight ones, selected with `tone`, plus 48 emoji. All of it is replaceable:
 
 ```bash
-cheerbot messages edit       # copies the defaults to ~/.config/cheerbot/messages.txt
+cheerbot messages edit       # seeds ~/.config/cheerbot/messages.txt with what's in use
 cheerbot messages add "Your text here"
 cheerbot messages list
 
@@ -159,19 +167,34 @@ cheerbot emoji add 🦆
 cheerbot emoji list
 ```
 
-Your file replaces the bundled set entirely. One entry per line; blank lines and
-`#` comments are ignored. To preview a specific combination:
+Your file replaces the bundled set entirely, and `tone` no longer applies. One
+entry per line; blank lines and `#` comments are ignored. To preview:
 
 ```bash
-cheerbot now -e 🦆 -m "Just checking the layout"
+cheerbot now -e 🦆 -m "Just checking the layout"   # one specific combination
+cheerbot demo -n 5 --min 8 --max 20                # a burst, at random short gaps
 ```
+
+## Only when you're there
+
+Encouragement that arrives while you're at lunch is wasted, so a nudge is held
+back unless there has been keyboard or mouse input in the last
+`max_idle_minutes` and the screen is unlocked. Held nudges aren't dropped: the
+pending fire time stays put, so the message lands on the next tick after you
+come back rather than never.
+
+Idle time comes from `ioreg`'s `HIDIdleTime`, which needs no dependencies and
+works from a `launchd` job. If that probe ever stops working the check fails
+open and nudges continue, since going permanently silent is the worse failure.
+`cheerbot status` shows the current reading.
 
 ## How it works
 
 `launchd` runs `cheerbot tick` every 5 minutes. A tick is cheap and almost
 always a no-op: it compares the current time against `next_fire` in
 `~/.config/cheerbot/state.json`, and only when that has passed (and the moment
-is inside the active window) does it deliver a message and roll a new random
+is inside the active window, and you're at the machine) does it deliver a
+message and roll a new random
 `next_fire`. Polling keeps the timing random without needing a resident process,
 and it recovers correctly when the Mac is asleep at the scheduled moment: the
 missed nudge is skipped rather than dumped on you all at once on wake.

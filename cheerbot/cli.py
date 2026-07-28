@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import random
 import re
 import subprocess
 import sys
@@ -12,7 +13,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple
 
-from . import launchagent, messages, nativeapp, notifier, paths, scheduler
+from . import activity, launchagent, messages, nativeapp, notifier, paths, scheduler
 from .config import Config, coerce
 from .state import State
 
@@ -91,7 +92,7 @@ def cmd_tick(_args) -> int:
 def cmd_now(args) -> int:
     cfg = _load_config()
     state = State.load()
-    message = args.message or messages.pick(messages.load(), state.recent)
+    message = args.message or messages.pick(messages.load(cfg.tone), state.recent)
     emoji = args.emoji if args.emoji is not None else messages.pick_emoji(cfg.emoji, state.last_emoji)
     title, badge = _compose(cfg, emoji)
     before = nativeapp.log_size()
@@ -141,6 +142,46 @@ def cmd_surprise(_args) -> int:
     return 0
 
 
+def cmd_demo(args) -> int:
+    """Fire a burst of notifications at random short gaps.
+
+    Exercises the real pipeline (tone, no-repeat, badge, activity gate) on a
+    timescale you can actually watch, without touching the schedule or stats.
+    """
+    cfg = _load_config()
+    state = State.load()
+    pool = messages.load(cfg.tone)
+    recent = list(state.recent)
+    last_emoji = state.last_emoji
+
+    print(f"{args.count} notifications, {args.min}-{args.max}s apart, tone={cfg.tone}")
+    print("(this is a preview: the real schedule and counters are untouched)\n")
+
+    for index in range(1, args.count + 1):
+        if index > 1:
+            gap = random.uniform(args.min, args.max)
+            print(f"  ... waiting {gap:.0f}s")
+            time.sleep(gap)
+
+        if cfg.require_activity and not activity.is_active(cfg.max_idle_minutes):
+            print(f"  {index}. held back: {activity.describe(cfg.max_idle_minutes)}")
+            continue
+
+        message = messages.pick(pool, recent)
+        recent.append(message)
+        last_emoji = messages.pick_emoji(cfg.emoji, last_emoji)
+        title, badge = _compose(cfg, last_emoji)
+        try:
+            notifier.send(title, message, cfg.sound, badge)
+        except notifier.NotifyError as exc:
+            print(f"  {index}. failed: {exc}", file=sys.stderr)
+            return 1
+        print(f"  {index}. {badge or '—'}  {message}")
+
+    print("\ndemo over; your real schedule is unchanged")
+    return 0
+
+
 def cmd_status(_args) -> int:
     cfg = Config.load()
     state = State.load()
@@ -174,7 +215,11 @@ def cmd_status(_args) -> int:
         last = datetime.fromtimestamp(state.last_fire)
         print(f"last          {last:%a %d %b %H:%M} ({_humanize(now - last)} ago)")
     print(f"delivered     {state.fired_count}")
-    print(f"messages      {len(messages.load())} from {messages.source_path()}")
+    print(f"messages      {len(messages.load(cfg.tone))} ({cfg.tone}) from {messages.source_path(cfg.tone)}")
+    if cfg.require_activity:
+        print(f"activity      {activity.describe(cfg.max_idle_minutes)}, away after {cfg.max_idle_minutes:g}m")
+    else:
+        print("activity      not required")
     if cfg.emoji.strip().lower() == "random":
         print(f"emoji         random, {len(messages.load_emoji())} in the pool")
     elif cfg.emoji.strip():
@@ -349,7 +394,7 @@ def cmd_config(args) -> int:
     return 0
 
 
-def _pool_command(args, entries, source, user_path, bundled_path) -> int:
+def _pool_command(args, entries, source, user_path) -> int:
     """Shared list/path/edit/add handling for the message and emoji pools."""
     if args.action == "path":
         print(source)
@@ -361,10 +406,13 @@ def _pool_command(args, entries, source, user_path, bundled_path) -> int:
         return 0
 
     def ensure_user_copy() -> None:
-        if not user_path.exists():
-            user_path.parent.mkdir(parents=True, exist_ok=True)
-            user_path.write_text(bundled_path.read_text(encoding="utf-8"), encoding="utf-8")
-            print(f"copied the bundled set to {user_path}")
+        if user_path.exists():
+            return
+        user_path.parent.mkdir(parents=True, exist_ok=True)
+        # Seed from what is currently in use rather than one bundled file, so
+        # the tone you are hearing is the tone you start editing.
+        user_path.write_text("\n".join(entries) + "\n", encoding="utf-8")
+        print(f"seeded {user_path} with the {len(entries)} entries in use")
 
     if args.action == "edit":
         ensure_user_copy()
@@ -383,12 +431,12 @@ def _pool_command(args, entries, source, user_path, bundled_path) -> int:
 
 
 def cmd_messages(args) -> int:
+    tone = Config.load().tone
     return _pool_command(
         args,
-        messages.load(),
-        messages.source_path(),
+        messages.load(tone),
+        messages.source_path(tone),
         paths.user_messages_path(),
-        paths.BUNDLED_MESSAGES,
     )
 
 
@@ -398,7 +446,6 @@ def cmd_emoji(args) -> int:
         messages.load_emoji(),
         messages.emoji_source_path(),
         paths.user_emoji_path(),
-        paths.BUNDLED_EMOJI,
     )
 
 
@@ -425,6 +472,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     subs.add_parser("status", help="show schedule and health")
     subs.add_parser("surprise", help="re-roll the timing settings at random")
+
+    demo = subs.add_parser("demo", help="watch a burst of notifications up close")
+    demo.add_argument("-n", "--count", type=int, default=5, help="how many to send")
+    demo.add_argument("--min", type=float, default=8.0, help="shortest gap in seconds")
+    demo.add_argument("--max", type=float, default=20.0, help="longest gap in seconds")
 
     now = subs.add_parser("now", help="send an encouragement immediately")
     now.add_argument("-m", "--message", help="send this exact text instead of a random one")
@@ -456,6 +508,7 @@ _HANDLERS = {
     "stop": cmd_stop,
     "status": cmd_status,
     "surprise": cmd_surprise,
+    "demo": cmd_demo,
     "now": cmd_now,
     "tick": cmd_tick,
     "pause": cmd_pause,

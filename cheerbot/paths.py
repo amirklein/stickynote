@@ -15,6 +15,7 @@ APP_NAME = "Cheerbot"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ENTRYPOINT = REPO_ROOT / "bin" / "cheerbot"
 BUNDLED_MESSAGES = Path(__file__).resolve().parent / "data" / "messages.txt"
+BUNDLED_FUNNY = Path(__file__).resolve().parent / "data" / "messages-funny.txt"
 BUNDLED_EMOJI = Path(__file__).resolve().parent / "data" / "emoji.txt"
 
 
