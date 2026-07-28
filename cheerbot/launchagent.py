@@ -17,7 +17,7 @@ from . import paths
 POLL_SECONDS = 300
 
 APPLESCRIPT_SOURCE = Path(__file__).resolve().parent / "data" / "notifier.applescript"
-BUNDLE_ID = "dev.cheerbot.app"
+APPLET_BUNDLE_ID = "dev.cheerbot.app"
 
 
 def _run(cmd: List[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -30,8 +30,12 @@ def _run(cmd: List[str], check: bool = True) -> subprocess.CompletedProcess:
     return result
 
 
-def build_app() -> Path:
-    """Compile the AppleScript applet that owns our notification identity."""
+def build_applet() -> Path:
+    """Compile the AppleScript applet used when swiftc is unavailable.
+
+    Text only: AppleScript cannot attach a badge image. See nativeapp.py for
+    the preferred transport.
+    """
     app = paths.app_path()
     app.parent.mkdir(parents=True, exist_ok=True)
     if app.exists():
@@ -44,7 +48,7 @@ def build_app() -> Path:
         data = plistlib.load(handle)
     data["CFBundleName"] = paths.APP_NAME
     data["CFBundleDisplayName"] = paths.APP_NAME
-    data["CFBundleIdentifier"] = BUNDLE_ID
+    data["CFBundleIdentifier"] = APPLET_BUNDLE_ID
     # Keep the applet out of the Dock and the app switcher.
     data["LSUIElement"] = True
     with info.open("wb") as handle:

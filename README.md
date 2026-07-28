@@ -14,9 +14,11 @@ No dependencies beyond the system Python, no menu bar icon, no account.
 
 That does three things:
 
-1. Compiles `~/Applications/Cheerbot.app`, a tiny AppleScript applet that exists
-   only so notifications are attributed to "Cheerbot" and can be managed in
-   System Settings → Notifications.
+1. Builds `~/Applications/Cheerbot.app`, a small Swift helper that posts
+   notifications through the `UserNotifications` framework, with the app icon
+   baked in beforehand (see [Badges](#badges) for why the order matters). If
+   `swiftc` is unavailable it falls back to an AppleScript applet, which works
+   but cannot show badges.
 2. Installs the LaunchAgent at `~/Library/LaunchAgents/dev.cheerbot.agent.plist`,
    which starts at login and polls every 5 minutes.
 3. Sends one notification so macOS shows the permission prompt.
@@ -57,6 +59,7 @@ cheerbot config active_days 0,1,2,3,4    # 0 = Monday ... 6 = Sunday
 cheerbot config title "Hey you"
 cheerbot config emoji off                # or a literal emoji, or "random"
 cheerbot config sound Glass              # any macOS alert sound, "" for silent
+cheerbot config emoji_placement title    # badge | title | both | off | auto
 cheerbot config enabled off
 ```
 
@@ -65,7 +68,9 @@ cheerbot config enabled off
 | `min_minutes` / `max_minutes` | 45 / 180 | Each notification lands at a uniformly random gap in this range |
 | `active_start` / `active_end` | 09:00 / 21:00 | Local-time window; wrapping past midnight (e.g. 22:00–02:00) works |
 | `active_days` | all | Days the window applies to |
-| `emoji` | `random` | Fills the emoji slot: `random` draws from the pool, `off` empties it, anything else is used literally |
+| `emoji` | `random` | Which emoji: `random` draws from the pool, `off` empties the slot, anything else is used literally |
+| `emoji_placement` | `auto` | `badge`, `title`, `both`, `off`, or `auto` to use a badge when the transport supports one |
+| `app_icon` | 🌱 | The app's own icon. Changing it needs a rebuild under a new bundle identifier to take effect |
 | `no_repeat_window` | 25 | How many recent messages to avoid repeating |
 | `show_next` | true | When off, `status` hides the exact next-nudge time |
 
@@ -75,15 +80,41 @@ Timing changes reschedule the pending nudge immediately.
 off, so even you don't know when the next one is coming. `cheerbot config` still
 shows what it picked if you want to peek.
 
+## Badges
+
+Each notification carries a badge: the emoji, rendered to an image and attached
+to the notification itself, so it appears as a thumbnail beside the text. The
+badge changes every time and never repeats twice in a row.
+
+Getting there ran into two hard macOS constraints, both verified by experiment
+rather than assumed, and both of which shape the implementation:
+
+**AppleScript can't carry an image.** `display notification` is text only. A
+badge requires `UNNotificationAttachment`, which means a real app built against
+`UserNotifications` — hence the Swift helper in `notifier/`. It has to be
+registered in `~/Applications` and launched via `open`; run the binary straight
+from a shell and the authorization request gets attributed to the terminal, and
+macOS refuses it outright with "Notifications are not allowed for this
+application".
+
+**The app icon on the left cannot change per notification.** It is frozen the
+first time the bundle registers for notification permission. Replacing the
+`.icns`, re-signing, re-registering with `lsregister` and killing
+`usernotificationsd` all update Finder and LaunchServices but never the banner.
+The corollary is that the icon must be baked in *before* the bundle is ever
+launched, which is exactly what `nativeapp.build()` does — miss that ordering
+and Cheerbot is stuck with a generic icon forever, with no way back short of a
+new bundle identifier.
+
+So: the app icon is fixed (`app_icon`, default 🌱) and the badge beside the text
+is what varies.
+
+If you would rather have the emoji in the title text as before, set
+`cheerbot config emoji_placement title`. The default, `auto`, uses a badge when
+the native helper is installed and falls back to the title when it isn't, so
+machines without Xcode Command Line Tools still get an emoji.
+
 ## Messages and emoji
-
-Notifications are built as `<emoji> <title>` on the bold line and the message
-underneath, so one looks like:
-
-```
-🌱 Cheerbot
-Progress counts even when nobody claps for it.
-```
 
 102 messages and 48 emoji ship with it, in two pools you can replace:
 
@@ -98,8 +129,7 @@ cheerbot emoji list
 ```
 
 Your file replaces the bundled set entirely. One entry per line; blank lines and
-`#` comments are ignored. The emoji is drawn at random per notification and
-never repeats twice in a row. To preview a specific combination:
+`#` comments are ignored. To preview a specific combination:
 
 ```bash
 cheerbot now -e 🦆 -m "Just checking the layout"
@@ -115,11 +145,14 @@ is inside the active window) does it deliver a message and roll a new random
 and it recovers correctly when the Mac is asleep at the scheduled moment: the
 missed nudge is skipped rather than dumped on you all at once on wake.
 
-Delivery prefers the app bundle. If `Cheerbot.app` is missing it falls back to
-plain `osascript`, which still works but attributes notifications to whatever is
-hosting the script.
+Delivery has three transports, best first: the native Swift helper (the only one
+that can show a badge), the AppleScript applet, and plain `osascript`. The last
+still works but attributes notifications to whatever is hosting the script.
+`cheerbot status` reports which one is in use.
 
-Logs: `~/.config/cheerbot/cheerbot.log` (only records actual deliveries and errors).
+Logs: `~/.config/cheerbot/cheerbot.log` for deliveries, and
+`~/.config/cheerbot/notifier.log` for helper errors, which is the only way to
+see a refused notification given delivery is asynchronous.
 
 ## Uninstall
 
