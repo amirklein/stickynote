@@ -120,10 +120,15 @@ cheerbot config app_icon ~/Pictures/my-icon.png
 cheerbot start                 # rebuild, then approve the new permission prompt
 ```
 
-Images are copied to `~/.config/cheerbot/app_icon.png` so the icon keeps working
-after you move the original, and converted to real PNG on the way in — files
-named `.png` while containing JPEG data are common, and `iconutil` rejects them.
-Non-square images are padded rather than stretched.
+Images are copied into `~/.config/cheerbot/` so the icon keeps working after you
+move the original, and converted to real PNG on the way in — files named `.png`
+while containing JPEG data are common, and `iconutil` rejects them. Non-square
+images are padded rather than stretched.
+
+An `.icns` is used verbatim rather than rebuilt, since it already carries
+artwork at every size and flattening it through a single PNG would discard any
+per-size differences. That makes a purpose-built `.icns` the best input if you
+have one.
 
 Because the icon is frozen per bundle identifier, changing it bumps
 `bundle_generation`, which gives macOS an identifier it has not cached. The cost

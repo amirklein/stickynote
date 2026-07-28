@@ -123,6 +123,15 @@ def _prepare_source(icon: str, binary: Path, work: Path) -> Path:
 
 def _build_icon(binary: Path, icon: str, resources: Path) -> None:
     """Turn an emoji or image into the .icns the notification banner shows."""
+    resources.mkdir(parents=True, exist_ok=True)
+
+    candidate = Path(icon).expanduser()
+    if candidate.is_file() and candidate.suffix.lower() == ".icns":
+        # Already an icon set. Copy it verbatim rather than rebuilding from one
+        # flattened PNG, which would discard any per-size artwork it carries.
+        shutil.copyfile(candidate, resources / "AppIcon.icns")
+        return
+
     with tempfile.TemporaryDirectory() as work_dir:
         work = Path(work_dir)
         base = _prepare_source(icon, binary, work)
@@ -140,7 +149,6 @@ def _build_icon(binary: Path, icon: str, resources: Path) -> None:
 
         icns = work / "AppIcon.icns"
         _run(["/usr/bin/iconutil", "-c", "icns", str(iconset), "-o", str(icns)])
-        resources.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(icns, resources / "AppIcon.icns")
 
 
@@ -192,15 +200,26 @@ def build(icon: str = "🌱", generation: int = 1) -> Path:
 
 
 def adopt_icon(source: Path) -> Path:
-    """Copy a chosen image into the config directory as a stable PNG.
+    """Copy a chosen icon into the config directory, in a stable format.
 
-    Keeps the icon working after the original is moved out of Downloads, and
-    normalises the format up front so a mislabelled JPEG cannot fail the build
-    later.
+    Keeps the icon working after the original is moved out of Downloads. Images
+    are normalised to PNG up front so a mislabelled JPEG cannot fail the build
+    later; an .icns is kept as-is to preserve its per-size representations.
     """
-    destination = paths.home() / "app_icon.png"
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    _run(["/usr/bin/sips", "-s", "format", "png", str(source), "--out", str(destination)])
+    home = paths.home()
+    home.mkdir(parents=True, exist_ok=True)
+
+    if source.suffix.lower() == ".icns":
+        destination = home / "app_icon.icns"
+        shutil.copyfile(source, destination)
+    else:
+        destination = home / "app_icon.png"
+        _run(["/usr/bin/sips", "-s", "format", "png", str(source), "--out", str(destination)])
+
+    # Drop the other form so a stale file cannot be mistaken for the current one.
+    for other in (home / "app_icon.png", home / "app_icon.icns"):
+        if other != destination and other.exists():
+            other.unlink()
     return destination
 
 
