@@ -76,7 +76,7 @@ def cmd_tick(_args) -> int:
         # emoji we just used so the next one differs.
         state.last_emoji = messages.pick_emoji(cfg.emoji, state.last_emoji)
         title, badge = _compose(cfg, state.last_emoji)
-        notifier.send(title, message, cfg.sound, badge)
+        notifier.send(title, message, cfg.sound, badge, cfg.linger_seconds)
 
     try:
         result = scheduler.tick(cfg, state, now, deliver)
@@ -95,9 +95,10 @@ def cmd_now(args) -> int:
     message = args.message or messages.pick(messages.load(cfg.tone), state.recent)
     emoji = args.emoji if args.emoji is not None else messages.pick_emoji(cfg.emoji, state.last_emoji)
     title, badge = _compose(cfg, emoji)
+    linger = args.linger if args.linger is not None else cfg.linger_seconds
     before = nativeapp.log_size()
     try:
-        transport = notifier.send(title, message, cfg.sound, badge)
+        transport = notifier.send(title, message, cfg.sound, badge, linger)
     except notifier.NotifyError as exc:
         print(f"could not send notification: {exc}", file=sys.stderr)
         return 1
@@ -172,13 +173,45 @@ def cmd_demo(args) -> int:
         last_emoji = messages.pick_emoji(cfg.emoji, last_emoji)
         title, badge = _compose(cfg, last_emoji)
         try:
-            notifier.send(title, message, cfg.sound, badge)
+            notifier.send(title, message, cfg.sound, badge, cfg.linger_seconds)
         except notifier.NotifyError as exc:
             print(f"  {index}. failed: {exc}", file=sys.stderr)
             return 1
         print(f"  {index}. {badge or '—'}  {message}")
 
     print("\ndemo over; your real schedule is unchanged")
+    return 0
+
+
+def _linger_label(cfg: Config) -> str:
+    if cfg.linger_seconds <= 0:
+        return "until dismissed"
+    return f"{cfg.linger_seconds:g}s, if set to Alerts (banners are capped near 5s)"
+
+
+def cmd_alerts(_args) -> int:
+    """Open the pane where the banner/alert choice lives.
+
+    It cannot be set programmatically, nor read back reliably: the preference
+    is guarded by the system, and Apple has said apps will not be allowed to
+    choose it.
+    """
+    print("macOS only lets you set this by hand, so:")
+    print()
+    print("  1. In the window opening now, find Cheerbot in the app list")
+    print("  2. Choose 'Alerts' instead of 'Banners'")
+    print()
+    print("Earlier icon changes can leave more than one entry named Cheerbot.")
+    print("The live one is the entry showing your current app icon.")
+    print()
+    print("Banners are taken off screen by the system after about five seconds")
+    print("no matter what an app asks for. Alerts stay until dismissed, which is")
+    print(f"what lets linger_seconds ({Config.load().linger_seconds:g}s) mean anything.")
+    subprocess.run(
+        ["/usr/bin/open",
+         "x-apple.systempreferences:com.apple.Notifications-Settings.extension"],
+        check=False,
+    )
     return 0
 
 
@@ -216,6 +249,7 @@ def cmd_status(_args) -> int:
         print(f"last          {last:%a %d %b %H:%M} ({_humanize(now - last)} ago)")
     print(f"delivered     {state.fired_count}")
     print(f"messages      {len(messages.load(cfg.tone))} ({cfg.tone}) from {messages.source_path(cfg.tone)}")
+    print(f"on screen     {_linger_label(cfg)}")
     if cfg.require_activity:
         print(f"activity      {activity.describe(cfg.max_idle_minutes)}, away after {cfg.max_idle_minutes:g}m")
     else:
@@ -286,7 +320,10 @@ def cmd_start(args) -> int:
         badge = messages.pick_emoji(cfg.emoji) if notifier.supports_badges() else ""
         title, badge = _compose(cfg, badge)
         try:
-            notifier.send(title, "Cheerbot is on. I'll check in now and then.", cfg.sound, badge)
+            notifier.send(
+                title, "Cheerbot is on. I'll check in now and then.",
+                cfg.sound, badge, cfg.linger_seconds,
+            )
         except notifier.NotifyError as exc:
             print(f"(test notification failed: {exc})", file=sys.stderr)
         print("approve the permission prompt, or you'll get nothing but silence")
@@ -473,6 +510,8 @@ def build_parser() -> argparse.ArgumentParser:
     subs.add_parser("status", help="show schedule and health")
     subs.add_parser("surprise", help="re-roll the timing settings at random")
 
+    subs.add_parser("alerts", help="switch macOS to the longer-lasting alert style")
+
     demo = subs.add_parser("demo", help="watch a burst of notifications up close")
     demo.add_argument("-n", "--count", type=int, default=5, help="how many to send")
     demo.add_argument("--min", type=float, default=8.0, help="shortest gap in seconds")
@@ -481,6 +520,10 @@ def build_parser() -> argparse.ArgumentParser:
     now = subs.add_parser("now", help="send an encouragement immediately")
     now.add_argument("-m", "--message", help="send this exact text instead of a random one")
     now.add_argument("-e", "--emoji", help="use this exact emoji instead of a random one")
+    now.add_argument(
+        "--linger", type=float, default=None,
+        help="seconds to keep it on screen, overriding linger_seconds (0 = until dismissed)",
+    )
 
     subs.add_parser("tick", help="scheduler poll (run by launchd)")
 
@@ -509,6 +552,7 @@ _HANDLERS = {
     "status": cmd_status,
     "surprise": cmd_surprise,
     "demo": cmd_demo,
+    "alerts": cmd_alerts,
     "now": cmd_now,
     "tick": cmd_tick,
     "pause": cmd_pause,

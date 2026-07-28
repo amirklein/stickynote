@@ -42,6 +42,11 @@ class Config:
     bundle_generation: int = 1
     # Any macOS alert sound name, or "" for silent.
     sound: str = ""
+    # How long the notification stays on screen, in seconds. Only has an effect
+    # once Cheerbot is set to Alerts in System Settings; a banner is dismissed
+    # by the system after about five seconds no matter what. 0 leaves it up
+    # until dismissed.
+    linger_seconds: float = 15.0
     # Which bundled message pool to draw from: "funny", "sincere" or "mixed".
     # Ignored once you supply your own messages file.
     tone: str = "funny"
@@ -91,6 +96,8 @@ class Config:
             raise ValueError(f"tone must be one of {', '.join(tones)}")
         if self.max_idle_minutes <= 0:
             raise ValueError("max_idle_minutes must be greater than 0")
+        if self.linger_seconds < 0:
+            raise ValueError("linger_seconds must be 0 or greater")
         _parse_hhmm(self.active_start)
         _parse_hhmm(self.active_end)
 

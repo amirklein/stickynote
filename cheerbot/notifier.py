@@ -90,12 +90,12 @@ def _via_osascript(title: str, body: str, sound: str) -> None:
         raise NotifyError(result.stderr.strip() or "osascript failed")
 
 
-def send(title: str, body: str, sound: str = "", badge: str = "") -> str:
+def send(title: str, body: str, sound: str = "", badge: str = "", linger: float = 0.0) -> str:
     """Show a notification. Returns the transport that was used."""
     chosen = transport()
     try:
         if chosen == "native":
-            nativeapp.send(title, body, badge, sound)
+            nativeapp.send(title, body, badge, sound, linger)
         elif chosen == "applet":
             _via_applet(title, body, sound)
         else:

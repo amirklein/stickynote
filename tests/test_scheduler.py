@@ -207,6 +207,44 @@ class ActivityGateTests(unittest.TestCase):
         self.assertGreaterEqual(idle, 0)
 
 
+class LingerTests(unittest.TestCase):
+    def setUp(self):
+        self.sent = {}
+        self.original_send = nativeapp.send
+        self.original_installed = nativeapp.is_installed
+        nativeapp.send = lambda *a, **k: self.sent.update(args=a)
+        nativeapp.is_installed = lambda: True
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        nativeapp.send = self.original_send
+        nativeapp.is_installed = self.original_installed
+
+
+    def test_linger_reaches_the_helper(self):
+        notifier.send("T", "B", "", "🌱", 15.0)
+        self.assertEqual(self.sent["args"][4], 15.0)
+
+    def test_zero_linger_is_passed_through_untouched(self):
+        notifier.send("T", "B", "", "🌱", 0.0)
+        self.assertEqual(self.sent["args"][4], 0.0)
+
+    def test_negative_linger_is_rejected(self):
+        with self.assertRaises(ValueError):
+            Config(linger_seconds=-1).validate()
+
+    def test_status_states_the_duration_and_its_condition(self):
+        label = cli._linger_label(Config(linger_seconds=15))
+        self.assertIn("15s", label)
+        self.assertIn("Alerts", label)
+
+    def test_zero_is_described_as_persistent(self):
+        self.assertEqual(cli._linger_label(Config(linger_seconds=0)), "until dismissed")
+
+    def test_rainbow_is_gone_for_good(self):
+        self.assertNotIn("🌈", messages.load_emoji())
+
+
 class MessageTests(unittest.TestCase):
     def test_bundled_pool_is_substantial_and_unique(self):
         pool = messages.load()

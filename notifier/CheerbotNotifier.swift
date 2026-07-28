@@ -7,7 +7,7 @@
 // terminal instead of this bundle and macOS refuses authorization outright.
 //
 //   cheerbot-notifier render <text> <out.png>
-//   cheerbot-notifier notify --title T --body B [--emoji E] [--sound S]
+//   cheerbot-notifier notify --title T --body B [--emoji E] [--sound S] [--linger N]
 
 import AppKit
 import UserNotifications
@@ -66,6 +66,7 @@ struct Options {
     var body = ""
     var emoji = ""
     var sound = ""
+    var linger: Double = 0
 }
 
 func parseOptions(_ args: [String]) -> Options {
@@ -78,6 +79,7 @@ func parseOptions(_ args: [String]) -> Options {
         case "--body": options.body = value
         case "--emoji": options.emoji = value
         case "--sound": options.sound = value
+        case "--linger": options.linger = Double(value) ?? 0
         default: index -= 1
         }
         index += 2
@@ -139,15 +141,28 @@ final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
             content.attachments = [attachment]
         }
 
+        let identifier = UUID().uuidString
         let request = UNNotificationRequest(
-            identifier: UUID().uuidString, content: content, trigger: nil)
+            identifier: identifier, content: content, trigger: nil)
         center.add(request) { error in
             if let error = error {
                 log("delivery failed: \(error.localizedDescription)")
                 exit(3)
             }
-            // Give the daemon a beat to pick the request up before we exit.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { exit(0) }
+            // How long the notification stays on screen is not ours to set: a
+            // banner is dismissed by the system after roughly five seconds, and
+            // only the user can promote the app to the persistent Alert style.
+            // Under Alerts, withdrawing the notification ourselves takes it off
+            // screen, which turns "until dismissed" into a chosen duration.
+            // Zero means leave it up.
+            guard self.options.linger > 0 else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { exit(0) }
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + self.options.linger) {
+                center.removeDeliveredNotifications(withIdentifiers: [identifier])
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { exit(0) }
+            }
         }
     }
 
