@@ -267,6 +267,22 @@ class AppIconTests(unittest.TestCase):
         ))
         self.assertFalse(any("🌱".endswith(suffix) for suffix in cli._IMAGE_SUFFIXES))
 
+    def test_icns_source_is_copied_verbatim(self):
+        """An .icns already carries per-size artwork; rebuilding it would
+        flatten every size to one image."""
+        with tempfile.TemporaryDirectory() as work_dir:
+            work = Path(work_dir)
+            source = work / "custom.icns"
+            payload = b"icns-payload-not-really-an-icon"
+            source.write_bytes(payload)
+
+            resources = work / "Resources"
+            # The binary argument is only used to render emoji, so a path that
+            # does not exist proves the .icns path never reaches it.
+            nativeapp._build_icon(work / "no-such-binary", str(source), resources)
+
+            self.assertEqual((resources / "AppIcon.icns").read_bytes(), payload)
+
     def test_bundle_generation_survives_a_config_roundtrip(self):
         cfg = Config(app_icon="/tmp/icon.png", bundle_generation=4)
         cfg.save()
