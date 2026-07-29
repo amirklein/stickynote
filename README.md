@@ -71,7 +71,7 @@ cheerbot config enabled off
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `min_minutes` / `max_minutes` | 45 / 180 | Each notification lands at a uniformly random gap in this range |
+| `min_minutes` / `max_minutes` | 20 / 70 | Each notification lands at a uniformly random gap in this range |
 | `active_start` / `active_end` | 09:00 / 21:00 | Local-time window; wrapping past midnight (e.g. 22:00–02:00) works |
 | `active_days` | all | Days the window applies to |
 | `linger_seconds` | 15 | How long a notification stays on screen. Needs the Alerts style; see below. 0 leaves it until dismissed |
@@ -82,7 +82,7 @@ cheerbot config enabled off
 | `emoji_placement` | `auto` | `badge`, `title`, `both`, `off`, or `auto` to use a badge when the transport supports one |
 | `app_icon` | 🌱 | The app's own icon: an emoji or a path to an image. Changing it bumps `bundle_generation` |
 | `bundle_generation` | 1 | Bumped automatically when `app_icon` changes, to get past the frozen icon cache |
-| `no_repeat_window` | 25 | How many recent messages to avoid repeating |
+| `no_repeat_window` | 60 | How many recent messages to avoid repeating. Scale it with the frequency |
 | `show_next` | true | When off, `status` hides the exact next-nudge time |
 
 Timing changes reschedule the pending nudge immediately.
@@ -157,8 +157,8 @@ machines without Xcode Command Line Tools still get an emoji.
 
 ## Messages and emoji
 
-Two bundled message pools ship with it: 91 funny ones (the default) and 102
-straight ones, selected with `tone`, plus 48 emoji. All of it is replaceable:
+Two bundled message pools ship with it: 280 funny ones (the default) and 102
+straight ones, selected with `tone`, plus 47 emoji. All of it is replaceable:
 
 ```bash
 cheerbot messages edit       # seeds ~/.config/cheerbot/messages.txt with what's in use
@@ -177,6 +177,41 @@ entry per line; blank lines and `#` comments are ignored. To preview:
 cheerbot now -e 🦆 -m "Just checking the layout"   # one specific combination
 cheerbot demo -n 5 --min 8 --max 20                # a burst, at random short gaps
 ```
+
+## Why not a million messages?
+
+At roughly 15 nudges a day you see about 5,500 a year, so pool size maps to
+freshness like this:
+
+| Pool | Times you'd see each line per year | First possible repeat |
+| --- | --- | --- |
+| 280 (today) | ~20 | ~19 days |
+| 1,000 | ~5 | ~9 weeks |
+| 10,000 | ~0.5 | ~1.8 years |
+| 1,000,000 | ~0.005 | ~180 years |
+
+Storage was never the constraint; a million lines is a few dozen megabytes.
+The real ceiling is that past about 10,000 you will never read most of them, so
+the marginal line is worth nothing. Somewhere between one and a few thousand is
+the point where more stops being noticeable.
+
+The binding constraint is quality, not quantity. Every line here was chosen,
+which sets a floor: none of them will land badly on a bad day. A generated pool
+has a distribution instead of a floor, and the bottom of that distribution
+eventually arrives at the worst possible moment, with nobody having read it
+first.
+
+That is also the argument against generating them live. It would trade a
+zero-dependency offline tool for one needing a network, an API key, a per-nudge
+cost, and a fallback pool for when any of that fails — and a message written
+while you are not looking is one nobody approved. Novelty is easy; a random
+suffix makes every line unique. Being *good* is the hard part, and uniqueness
+does not help with it.
+
+The middle path, if the pool ever feels stale, is to use a model as an
+authoring tool: generate candidates offline, read them, keep the ones that are
+actually funny, and commit them. Same scale, no runtime dependency, floor
+intact.
 
 ## How long it stays up
 

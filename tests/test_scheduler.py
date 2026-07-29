@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -140,6 +141,20 @@ class ToneTests(unittest.TestCase):
 
     def test_funny_and_sincere_do_not_overlap(self):
         self.assertFalse(set(messages.load("funny")) & set(messages.load("sincere")))
+
+    def test_no_near_duplicates_slip_into_a_pool(self):
+        """Exact-match checking misses lines differing only in punctuation."""
+        for tone in ("funny", "sincere"):
+            seen = {}
+            for line in messages.load(tone):
+                key = re.sub(r"[^a-z0-9 ]", "", line.lower())
+                key = re.sub(r"\s+", " ", key).strip()
+                self.assertNotIn(key, seen, f"{tone}: {line!r} ~ {seen.get(key)!r}")
+                seen[key] = line
+
+    def test_the_funny_pool_is_large_enough_to_stay_fresh(self):
+        pool = messages.load("funny")
+        self.assertGreater(len(pool), 250, "expanded pool shrank unexpectedly")
 
     def test_config_rejects_an_unknown_tone(self):
         with self.assertRaises(ValueError):
