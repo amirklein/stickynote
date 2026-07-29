@@ -39,6 +39,7 @@ ln -s "$PWD/bin/cheerbot" /usr/local/bin/cheerbot
 cheerbot status              # schedule, next nudge, health
 cheerbot now                 # encourage me right now
 cheerbot demo                # watch a burst of them up close, without touching the schedule
+cheerbot alerts              # make notifications last longer than a five-second banner
 cheerbot surprise            # re-roll the timing at random, and stop showing me when
 cheerbot pause 3h            # quiet for a while (also: 90m, 2d, today)
 cheerbot resume
@@ -59,6 +60,7 @@ cheerbot config active_end 19:00
 cheerbot config active_days 0,1,2,3,4    # 0 = Monday ... 6 = Sunday
 cheerbot config title "Hey you"
 cheerbot config tone sincere             # funny | sincere | mixed
+cheerbot config linger_seconds 30        # longer on screen; 0 = until dismissed
 cheerbot config max_idle_minutes 10      # how long away before nudges are held
 cheerbot config require_activity off     # nudge even when you are not there
 cheerbot config emoji off                # or a literal emoji, or "random"
@@ -69,9 +71,10 @@ cheerbot config enabled off
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `min_minutes` / `max_minutes` | 45 / 180 | Each notification lands at a uniformly random gap in this range |
+| `min_minutes` / `max_minutes` | 20 / 70 | Each notification lands at a uniformly random gap in this range |
 | `active_start` / `active_end` | 09:00 / 21:00 | Local-time window; wrapping past midnight (e.g. 22:00–02:00) works |
 | `active_days` | all | Days the window applies to |
+| `linger_seconds` | 15 | How long a notification stays on screen. Needs the Alerts style; see below. 0 leaves it until dismissed |
 | `tone` | `funny` | Which bundled pool to draw from: `funny`, `sincere`, or `mixed`. Ignored once you write your own messages file |
 | `require_activity` | true | Hold a nudge back unless you are actually at the machine |
 | `max_idle_minutes` | 5 | How long without keyboard or mouse input counts as away |
@@ -79,7 +82,7 @@ cheerbot config enabled off
 | `emoji_placement` | `auto` | `badge`, `title`, `both`, `off`, or `auto` to use a badge when the transport supports one |
 | `app_icon` | 🌱 | The app's own icon: an emoji or a path to an image. Changing it bumps `bundle_generation` |
 | `bundle_generation` | 1 | Bumped automatically when `app_icon` changes, to get past the frozen icon cache |
-| `no_repeat_window` | 25 | How many recent messages to avoid repeating |
+| `no_repeat_window` | 60 | How many recent messages to avoid repeating. Scale it with the frequency |
 | `show_next` | true | When off, `status` hides the exact next-nudge time |
 
 Timing changes reschedule the pending nudge immediately.
@@ -154,8 +157,8 @@ machines without Xcode Command Line Tools still get an emoji.
 
 ## Messages and emoji
 
-Two bundled message pools ship with it: 91 funny ones (the default) and 102
-straight ones, selected with `tone`, plus 48 emoji. All of it is replaceable:
+Two bundled message pools ship with it: 280 funny ones (the default) and 102
+straight ones, selected with `tone`, plus 47 emoji. All of it is replaceable:
 
 ```bash
 cheerbot messages edit       # seeds ~/.config/cheerbot/messages.txt with what's in use
@@ -174,6 +177,69 @@ entry per line; blank lines and `#` comments are ignored. To preview:
 cheerbot now -e 🦆 -m "Just checking the layout"   # one specific combination
 cheerbot demo -n 5 --min 8 --max 20                # a burst, at random short gaps
 ```
+
+## Why not a million messages?
+
+At roughly 15 nudges a day you see about 5,500 a year, so pool size maps to
+freshness like this:
+
+| Pool | Times you'd see each line per year | First possible repeat |
+| --- | --- | --- |
+| 280 (today) | ~20 | ~19 days |
+| 1,000 | ~5 | ~9 weeks |
+| 10,000 | ~0.5 | ~1.8 years |
+| 1,000,000 | ~0.005 | ~180 years |
+
+Storage was never the constraint; a million lines is a few dozen megabytes.
+The real ceiling is that past about 10,000 you will never read most of them, so
+the marginal line is worth nothing. Somewhere between one and a few thousand is
+the point where more stops being noticeable.
+
+The binding constraint is quality, not quantity. Every line here was chosen,
+which sets a floor: none of them will land badly on a bad day. A generated pool
+has a distribution instead of a floor, and the bottom of that distribution
+eventually arrives at the worst possible moment, with nobody having read it
+first.
+
+That is also the argument against generating them live. It would trade a
+zero-dependency offline tool for one needing a network, an API key, a per-nudge
+cost, and a fallback pool for when any of that fails — and a message written
+while you are not looking is one nobody approved. Novelty is easy; a random
+suffix makes every line unique. Being *good* is the hard part, and uniqueness
+does not help with it.
+
+The middle path, if the pool ever feels stale, is to use a model as an
+authoring tool: generate candidates offline, read them, keep the ones that are
+actually funny, and commit them. Same scale, no runtime dependency, floor
+intact.
+
+## How long it stays up
+
+macOS has two notification styles, and an app does not get to pick. A **banner**
+is taken off screen by the system after about five seconds no matter what the
+app asks for; an **alert** stays until it is dismissed. The old
+`NSUserNotificationAlertStyle` Info.plist key has no effect under
+`UNUserNotificationCenter`, and Apple has said choosing the style will stay off
+limits to apps. So the switch is yours to flip, once:
+
+```bash
+cheerbot alerts     # opens the pane, tells you what to change
+```
+
+With Cheerbot set to Alerts, `linger_seconds` becomes real: the helper stays
+alive that long and then withdraws its own notification, which turns "until
+dismissed" into a duration you choose. Set it to `0` to leave notifications up
+until you dismiss them yourself.
+
+Two things worth knowing. Withdrawing also takes the notification out of
+Notification Center, so it won't be there to scroll back to; use `0` if you
+want them to accumulate. And if several entries in System Settings are named
+Cheerbot, left over from earlier icon changes, the live one is whichever shows
+your current app icon.
+
+`cheerbot status` reports the configured duration, but it cannot confirm the
+style: `UNNotificationSettings` keeps reporting `banner` even for a bundle
+switched to Alerts, so the only reliable check is watching one land.
 
 ## Only when you're there
 
