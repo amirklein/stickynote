@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -141,6 +142,20 @@ class ToneTests(unittest.TestCase):
     def test_funny_and_sincere_do_not_overlap(self):
         self.assertFalse(set(messages.load("funny")) & set(messages.load("sincere")))
 
+    def test_no_near_duplicates_slip_into_a_pool(self):
+        """Exact-match checking misses lines differing only in punctuation."""
+        for tone in ("funny", "sincere"):
+            seen = {}
+            for line in messages.load(tone):
+                key = re.sub(r"[^a-z0-9 ]", "", line.lower())
+                key = re.sub(r"\s+", " ", key).strip()
+                self.assertNotIn(key, seen, f"{tone}: {line!r} ~ {seen.get(key)!r}")
+                seen[key] = line
+
+    def test_the_funny_pool_is_large_enough_to_stay_fresh(self):
+        pool = messages.load("funny")
+        self.assertGreater(len(pool), 250, "expanded pool shrank unexpectedly")
+
     def test_config_rejects_an_unknown_tone(self):
         with self.assertRaises(ValueError):
             Config(tone="sarcastic").validate()
@@ -205,6 +220,44 @@ class ActivityGateTests(unittest.TestCase):
         idle = activity.idle_seconds()
         self.assertIsNotNone(idle, "HIDIdleTime should be readable on macOS")
         self.assertGreaterEqual(idle, 0)
+
+
+class LingerTests(unittest.TestCase):
+    def setUp(self):
+        self.sent = {}
+        self.original_send = nativeapp.send
+        self.original_installed = nativeapp.is_installed
+        nativeapp.send = lambda *a, **k: self.sent.update(args=a)
+        nativeapp.is_installed = lambda: True
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        nativeapp.send = self.original_send
+        nativeapp.is_installed = self.original_installed
+
+
+    def test_linger_reaches_the_helper(self):
+        notifier.send("T", "B", "", "🌱", 15.0)
+        self.assertEqual(self.sent["args"][4], 15.0)
+
+    def test_zero_linger_is_passed_through_untouched(self):
+        notifier.send("T", "B", "", "🌱", 0.0)
+        self.assertEqual(self.sent["args"][4], 0.0)
+
+    def test_negative_linger_is_rejected(self):
+        with self.assertRaises(ValueError):
+            Config(linger_seconds=-1).validate()
+
+    def test_status_states_the_duration_and_its_condition(self):
+        label = cli._linger_label(Config(linger_seconds=15))
+        self.assertIn("15s", label)
+        self.assertIn("Alerts", label)
+
+    def test_zero_is_described_as_persistent(self):
+        self.assertEqual(cli._linger_label(Config(linger_seconds=0)), "until dismissed")
+
+    def test_rainbow_is_gone_for_good(self):
+        self.assertNotIn("🌈", messages.load_emoji())
 
 
 class MessageTests(unittest.TestCase):
