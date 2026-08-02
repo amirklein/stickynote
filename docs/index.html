@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sticky Note — cute, funny notes on your Mac</title>
+<meta name="description" content="Random encouraging notifications for macOS. Five theme packs, a settings window, and a note when your coding agent finishes. Free, open source, and everything stays on your machine.">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Sticky Note">
+<meta property="og:description" content="Cute, funny sticky notes that turn up on your Mac when you need them. Free and open source.">
+<meta property="og:url" content="https://amirklein.github.io/stickynote/">
+<meta property="og:image" content="https://amirklein.github.io/stickynote/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sticky Note">
+<meta name="twitter:description" content="Cute, funny sticky notes that turn up on your Mac when you need them.">
+<meta name="twitter:image" content="https://amirklein.github.io/stickynote/og.png">
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+<style>
+:root {
+  --paper: #fdfcf7;
+  --ink: #1d1c19;
+  --muted: #6d6a63;
+  --line: #e6e2d6;
+  --note: #ffe66d;
+  --note-deep: #f5c518;
+  --card: #ffffff;
+  --shadow: 0 1px 2px rgba(29,28,25,.05), 0 8px 30px rgba(29,28,25,.07);
+  --radius: 16px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #14140f;
+    --ink: #f3f1ea;
+    --muted: #9d998e;
+    --line: #2c2b25;
+    --card: #1c1b16;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 40px rgba(0,0,0,.35);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Faint ruled-paper wash, so the page itself feels like a note. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(900px 500px at 75% -10%, rgba(255,230,109,.28), transparent 70%),
+    radial-gradient(700px 400px at 5% 10%, rgba(255,196,120,.14), transparent 70%);
+}
+
+main, header, footer { position: relative; z-index: 1; }
+
+.wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+
+/* ---------- hero ---------- */
+
+header { padding: 88px 0 72px; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  background: var(--card);
+  padding: 6px 14px;
+  border-radius: 100px;
+  margin-bottom: 26px;
+}
+
+h1 {
+  font-size: clamp(44px, 7vw, 76px);
+  line-height: 1.02;
+  letter-spacing: -.035em;
+  margin: 0 0 20px;
+  font-weight: 700;
+}
+
+.lede {
+  font-size: clamp(19px, 2.4vw, 23px);
+  color: var(--muted);
+  max-width: 30em;
+  margin: 0 0 38px;
+  line-height: 1.5;
+}
+
+.lede strong { color: var(--ink); font-weight: 600; }
+
+/* ---------- install ---------- */
+
+.install {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  max-width: 880px;
+}
+
+.install code {
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 16px 18px;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  color: var(--ink);
+  /* Wrap rather than scroll: a command nobody can read in full is one
+     nobody should be pasting into a terminal. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.install code .prompt { color: var(--muted); margin-right: 10px; user-select: none; }
+
+.copy {
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: var(--note);
+  color: #1d1c19;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 650;
+  padding: 0 22px;
+  cursor: pointer;
+  transition: background .15s ease;
+  white-space: nowrap;
+}
+
+.copy:hover { background: var(--note-deep); }
+.copy.done { background: #7ac74f; color: #fff; }
+
+.install-note {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 14px 0 0;
+}
+
+.install-note a { color: inherit; }
+
+/* ---------- screenshots ---------- */
+
+.stage {
+  margin: 60px 0 0;
+  display: flex;
+  justify-content: center;
+}
+
+/* Cropped to the window itself, with the macOS shadow discarded: a captured
+   shadow cropped part way through its fade reads as a grey box on the light
+   background. The radii below match the real corners so the shadow follows
+   them instead of cutting square. */
+.shot {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.note-shot {
+  width: 470px;
+  border-radius: 21px;
+  box-shadow: 0 14px 44px rgba(29,28,25,.20), 0 2px 8px rgba(29,28,25,.10);
+}
+
+.window-shot {
+  width: 420px;
+  margin: 0 auto;
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(29,28,25,.20), 0 3px 10px rgba(29,28,25,.10);
+}
+
+.showcase {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 48px;
+  align-items: center;
+}
+
+@media (max-width: 820px) {
+  .showcase { grid-template-columns: 1fr; gap: 26px; }
+  .window-shot { width: 340px; }
+}
+
+.stage-caption {
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 18px;
+}
+
+.stage-caption b { color: var(--ink); font-weight: 600; }
+
+/* ---------- sections ---------- */
+
+section { padding: 76px 0; border-top: 1px solid var(--line); }
+section:first-of-type { border-top: 0; }
+
+h2 {
+  font-size: clamp(27px, 3.6vw, 34px);
+  letter-spacing: -.025em;
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+
+.sub { color: var(--muted); margin: 0 0 34px; max-width: 34em; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 22px 24px;
+  box-shadow: var(--shadow);
+}
+
+.card h3 {
+  font-size: 16.5px;
+  margin: 0 0 7px;
+  letter-spacing: -.01em;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.card p { margin: 0; font-size: 15px; color: var(--muted); line-height: 1.55; }
+.card .emoji { font-size: 19px; }
+
+/* packs */
+
+.packs { display: grid; gap: 12px; }
+
+.pack {
+  display: grid;
+  grid-template-columns: 132px 62px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+}
+
+.pack-name { font-weight: 650; letter-spacing: -.01em; }
+.pack-count { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.pack-desc { color: var(--muted); font-size: 15px; }
+
+@media (max-width: 620px) {
+  .pack { grid-template-columns: 1fr auto; }
+  .pack-desc { grid-column: 1 / -1; }
+}
+
+/* a note on rotation, to show the range without faking a notification */
+
+.sampler {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 26px;
+  padding: 20px 24px;
+  border-left: 3px solid var(--note-deep);
+  transition: opacity .4s ease;
+}
+
+.sampler.fading { opacity: 0; }
+.sampler p { margin: 0; font-size: 18px; font-style: italic; letter-spacing: -.01em; }
+.sampler-badge { font-size: 24px; flex: none; }
+
+/* code sample */
+
+pre {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 18px 20px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.75;
+  box-shadow: var(--shadow);
+  margin: 0;
+}
+
+pre .c { color: var(--muted); }
+
+/* faq */
+
+details {
+  border-bottom: 1px solid var(--line);
+  padding: 20px 0;
+}
+
+details:first-of-type { border-top: 1px solid var(--line); }
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -.01em;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+}
+
+summary::-webkit-details-marker { display: none; }
+
+summary::after {
+  content: "+";
+  font-weight: 400;
+  font-size: 22px;
+  color: var(--muted);
+  flex: none;
+  line-height: 1;
+}
+
+details[open] summary::after { content: "−"; }
+
+details p { color: var(--muted); margin: 14px 0 0; font-size: 16px; max-width: 46em; }
+details p:last-child { margin-bottom: 0; }
+details code {
+  font-family: var(--mono);
+  font-size: .89em;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+/* footer */
+
+footer {
+  border-top: 1px solid var(--line);
+  padding: 44px 0 64px;
+  color: var(--muted);
+  font-size: 15px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+footer a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line); }
+footer a:hover { border-bottom-color: var(--ink); }
+
+.button-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+
+.button {
+  display: inline-block;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  transition: transform .12s ease;
+}
+
+.button:hover { transform: translateY(-1px); }
+.button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+@media (max-width: 560px) {
+  header { padding: 52px 0 48px; }
+  section { padding: 56px 0; }
+  .wrap { padding: 0 20px; }
+  .stage { margin-top: 46px; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="badge">📝 &nbsp;macOS · free · open source</span>
+    <h1>Nice things,<br>at random.</h1>
+    <p class="lede">
+      Sticky Note leaves <strong>cute, funny notes</strong> around your Mac while
+      you work. No account, no tracking, nothing leaves your machine.
+    </p>
+
+    <div class="install">
+      <code><span class="prompt">$</span><span id="cmd">curl -fsSL https://raw.githubusercontent.com/amirklein/stickynote/main/install.sh | bash</span></code>
+      <button class="copy" id="copy">Copy</button>
+    </div>
+    <p class="install-note">
+      Paste that into Terminal. It asks a few questions, then you're done.
+      <a href="#why-terminal">Why not a download button?</a>
+    </p>
+
+    <div class="stage">
+      <picture>
+        <source srcset="note-dark.png" media="(prefers-color-scheme: dark)">
+        <img src="note-light.png" alt="A macOS notification reading: The universe is chaos and you made a spreadsheet. Genuinely heroic." width="682" height="140" class="shot note-shot">
+      </picture>
+    </div>
+    <p class="stage-caption">An actual note, caught in the corner of an actual screen.</p>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <div class="wrap">
+    <h2>Pick a voice</h2>
+    <p class="sub">
+      Five packs ship, and they can be mixed. Or write your own — a pack of
+      yours quietly replaces a bundled one of the same name.
+    </p>
+
+    <div class="packs">
+      <div class="pack">
+        <span class="pack-name">funny</span><span class="pack-count">480</span>
+        <span class="pack-desc">Cosmic shrugs, office earnestness, and gentle nagging about water</span>
+      </div>
+      <div class="pack">
+        <span class="pack-name">sincere</span><span class="pack-count">102</span>
+        <span class="pack-desc">Straightforward encouragement, no jokes</span>
+      </div>
+      <div class="pack">
+        <span class="pack-name">cosmic</span><span class="pack-count">67</span>
+        <span class="pack-desc">Entropy, the multiverse, and the cheerful kind of nihilism</span>
+      </div>
+      <div class="pack">
+        <span class="pack-name">office</span><span class="pack-count">100</span>
+        <span class="pack-desc">Workplace enthusiasm, deadpan asides, beet-farm discipline</span>
+      </div>
+      <div class="pack">
+        <span class="pack-name">zen</span><span class="pack-count">102</span>
+        <span class="pack-desc">Calm and unhurried, mostly about your body and your attention</span>
+      </div>
+    </div>
+
+    <div class="sampler">
+      <span class="sampler-badge" id="sampler-badge">🪐</span>
+      <p id="sampler">The universe is chaos and you made a spreadsheet. Genuinely heroic.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="showcase">
+      <div>
+        <h2>A window, if you want one</h2>
+        <p class="sub" style="margin-bottom:20px">
+          Rhythm, hours and packs without touching a config file. There's a menu
+          bar item too, for pausing when someone walks over to your desk.
+        </p>
+        <p class="sub" style="margin-bottom:0">
+          It's built on your machine the same way the app is, so it opens
+          without a single security warning.
+        </p>
+      </div>
+      <picture>
+        <source srcset="settings-dark.png" media="(prefers-color-scheme: dark)">
+        <img src="settings-light.png" alt="The Sticky Note settings window, showing rhythm sliders, active hours and theme pack checkboxes." width="914" height="1338" class="shot window-shot">
+      </picture>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Thought about</h2>
+    <p class="sub">The small things that decide whether you keep it installed or turn it off on day two.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h3><span class="emoji">👀</span> Only when you're there</h3>
+        <p>A note held back while you're at lunch isn't dropped — it waits and
+        lands once you're back at the keyboard.</p>
+      </div>
+      <div class="card">
+        <h3><span class="emoji">🎲</span> Never twice in a row</h3>
+        <p>Timing is random inside your hours, and the last several dozen notes
+        are remembered so nothing echoes.</p>
+      </div>
+      <div class="card">
+        <h3><span class="emoji">🤖</span> Agent notifications</h3>
+        <p>A note when Cursor, Claude Code or Codex finishes or needs you.
+        One command wires it up.</p>
+      </div>
+      <div class="card">
+        <h3><span class="emoji">🎨</span> Your own icon</h3>
+        <p>Any emoji or image becomes the app icon, and each note carries its
+        own badge on the right.</p>
+      </div>
+      <div class="card">
+        <h3><span class="emoji">✍️</span> Write your own</h3>
+        <p>Add your own lines, or point it at an AI key and have it write a few
+        hundred more in your voice.</p>
+      </div>
+      <div class="card">
+        <h3><span class="emoji">🔒</span> Stays on your Mac</h3>
+        <p>No account, no telemetry, no network at all unless you go and ask
+        for the optional AI writer.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Runs on plain commands</h2>
+    <p class="sub">Everything the window does, the terminal does too.</p>
+    <pre><span class="c"># the questionnaire, any time</span>
+stickynote setup
+
+<span class="c"># mix two packs, nudge yourself now, take a break</span>
+stickynote packs funny,zen
+stickynote now
+stickynote pause 3h
+
+<span class="c"># a note when your coding agent finishes</span>
+stickynote hooks install</pre>
+
+    <div class="button-row">
+      <a class="button primary" href="https://github.com/amirklein/stickynote">View on GitHub</a>
+      <a class="button" href="https://github.com/amirklein/stickynote#configuration">Read the docs</a>
+    </div>
+  </div>
+</section>
+
+<section id="why-terminal">
+  <div class="wrap">
+    <h2>Questions</h2>
+
+    <details open>
+      <summary>Why a terminal command instead of a download button?</summary>
+      <p>Because the download button would be worse, and this is the honest
+      version of why.</p>
+      <p>Apple charges $99 a year to sign an app so macOS trusts it. Without
+      that signature, a downloaded app doesn't just show a warning — on recent
+      macOS it's blocked outright, and getting past it means opening System
+      Settings, hunting for a security panel, and typing an admin password.
+      That's a worse first five minutes than pasting one line.</p>
+      <p>So Sticky Note skips downloads entirely. The install command fetches
+      the source and builds the app <em>on your machine</em>, which macOS
+      trusts natively. One line, no warnings, nothing to click past.</p>
+    </details>
+
+    <details>
+      <summary>Is it safe to pipe a script into bash?</summary>
+      <p>Reasonable instinct. The script is short and readable —
+      <a href="https://github.com/amirklein/stickynote/blob/main/install.sh">read it
+      first</a> if you like. It clones the repo, links one command onto your
+      path, and runs the setup questions. Nothing needs sudo.</p>
+    </details>
+
+    <details>
+      <summary>Does it send my data anywhere?</summary>
+      <p>No. There's no account, no analytics, and no network access at all in
+      normal use. Your settings live in a folder in your home directory and
+      never leave it.</p>
+      <p>The one exception is opt-in and obvious: if you connect your own AI
+      key to have it write new notes, that talks to whichever provider you
+      chose. It's off until you set it up.</p>
+    </details>
+
+    <details>
+      <summary>Will it get annoying?</summary>
+      <p>You choose the rhythm during setup, from a handful a day to roughly
+      one an hour, and you can change it whenever. Notes only arrive inside
+      the hours you pick, only when you're actually at the machine, and
+      <code>stickynote pause 3h</code> shuts it up without uninstalling
+      anything.</p>
+    </details>
+
+    <details>
+      <summary>How do I get rid of it?</summary>
+      <p><code>stickynote stop --purge</code> removes the background agent and
+      the app. Deleting <code>~/.config/stickynote</code> takes the settings
+      with it. Nothing else is touched.</p>
+    </details>
+
+    <details>
+      <summary>Do I need Xcode?</summary>
+      <p>Only for the fancy parts. Without the Xcode Command Line Tools the
+      notes still arrive; you just don't get the badge images or the settings
+      window. The installer tells you and carries on either way.</p>
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap" style="display:flex; justify-content:space-between; width:100%; flex-wrap:wrap; gap:14px;">
+    <span>Built by <a href="https://github.com/amirklein">Amir Klein</a> · MIT licensed</span>
+    <span><a href="https://github.com/amirklein/stickynote">Source</a> · <a href="https://github.com/amirklein/stickynote/issues">Report a bug</a></span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // A taste of each pack, so the rotation shows range rather than one voice.
+  var notes = [
+    ["You are a temporarily assembled pile of atoms doing calculus. That's already showing off.", "🪐"],
+    ["Shoulders. They're up by your ears again. Down.", "🧘"],
+    ["I want you to know I believe in you, and I've told several people that. Some of them agreed.", "🏆"],
+    ["Nothing matters, which means the pressure's off. Go do the thing badly.", "✨"],
+    ["You've handled every single hard day so far. That's a perfect record.", "🌱"],
+    ["The universe is chaos and you made a spreadsheet. Genuinely heroic.", "📊"],
+    ["Go look out a window at something that isn't rendering.", "🪟"],
+    ["Let's call this a win and not examine it too closely.", "🎈"],
+    ["Every atom in you was forged in a dying star, and now it's doing code review. Wild trajectory.", "⭐"],
+    ["Being tired is not the same as being behind.", "🌙"]
+  ];
+
+  var sampler = document.getElementById('sampler');
+  var samplerBadge = document.getElementById('sampler-badge');
+  var index = 0;
+
+  // Respect a stated preference for less motion; the first note reads fine
+  // on its own as a single example.
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (sampler && !still.matches) {
+    setInterval(function () {
+      sampler.parentNode.classList.add('fading');
+      setTimeout(function () {
+        index = (index + 1) % notes.length;
+        sampler.textContent = notes[index][0];
+        samplerBadge.textContent = notes[index][1];
+        sampler.parentNode.classList.remove('fading');
+      }, 400);
+    }, 4200);
+  }
+
+  var button = document.getElementById('copy');
+  button.addEventListener('click', function () {
+    var command = document.getElementById('cmd').textContent;
+    navigator.clipboard.writeText(command).then(function () {
+      button.textContent = 'Copied';
+      button.classList.add('done');
+      setTimeout(function () {
+        button.textContent = 'Copy';
+        button.classList.remove('done');
+      }, 1800);
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
