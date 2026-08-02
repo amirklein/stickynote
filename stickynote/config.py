@@ -65,6 +65,21 @@ class Config:
     # When off, `status` hides the exact next-nudge time so it stays a surprise.
     show_next: bool = True
 
+    # --- Optional model access. Everything here is off until asked for, and
+    # every one of these paths falls back to the bundled packs on failure.
+    # Top the generated pack up in the background when unseen lines run low.
+    ai_auto_refill: bool = False
+    # How few unseen lines is "running low", and how many to add when it is.
+    ai_refill_threshold: int = 40
+    ai_refill_count: int = 100
+    # Generate each note as it is sent. Off by default: the delivery path runs
+    # unattended, so a hung request would be silence, and an unreviewed line
+    # would be one nobody approved.
+    ai_live: bool = False
+    ai_live_timeout: float = 4.0
+    # Free-text guidance handed to the model, e.g. "dry, British, no exclamation marks".
+    ai_style: str = ""
+
     @classmethod
     def load(cls) -> "Config":
         path = paths.config_path()
@@ -118,6 +133,10 @@ class Config:
             raise ValueError("max_idle_minutes must be greater than 0")
         if self.linger_seconds < 0:
             raise ValueError("linger_seconds must be 0 or greater")
+        if self.ai_live_timeout <= 0:
+            raise ValueError("ai_live_timeout must be greater than 0")
+        if self.ai_refill_count <= 0:
+            raise ValueError("ai_refill_count must be greater than 0")
         _parse_hhmm(self.active_start)
         _parse_hhmm(self.active_end)
 

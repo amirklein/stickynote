@@ -1,5 +1,6 @@
 import contextlib
 import io
+import shutil
 import json
 import os
 import re
@@ -15,7 +16,8 @@ _TMP = tempfile.mkdtemp(prefix="stickynote-test-")
 os.environ["STICKYNOTE_HOME"] = _TMP
 
 from stickynote import (  # noqa: E402
-    activity, cli, messages, nativeapp, notifier, packs, paths, scheduler, wizard,
+    activity, ai, brew, cli, messages, nativeapp, notifier, packs, paths,
+    scheduler, translate, wizard,
 )
 from stickynote.config import Config, coerce  # noqa: E402
 from stickynote.state import State  # noqa: E402
@@ -132,8 +134,11 @@ class RandomizeTests(unittest.TestCase):
 
 
 class PackTests(unittest.TestCase):
+    def bundled(self):
+        return {i: p for i, p in packs.available().items() if p.bundled}
+
     def test_every_bundled_pack_is_usable(self):
-        for pack_id, pack in packs.available().items():
+        for pack_id, pack in self.bundled().items():
             lines = pack.messages()
             self.assertGreater(len(lines), 40, pack_id)
             self.assertEqual(len(lines), len(set(lines)), f"{pack_id} has duplicates")
@@ -141,7 +146,7 @@ class PackTests(unittest.TestCase):
 
     def test_the_expected_packs_ship(self):
         self.assertEqual(
-            set(packs.available()), {"funny", "sincere", "cosmic", "office", "zen"}
+            set(self.bundled()), {"funny", "sincere", "cosmic", "office", "zen"}
         )
 
     def test_mixing_packs_does_not_double_count(self):
@@ -161,7 +166,7 @@ class PackTests(unittest.TestCase):
 
     def test_no_near_duplicates_slip_into_a_pack(self):
         """Exact-match checking misses lines differing only in punctuation."""
-        for pack_id, pack in packs.available().items():
+        for pack_id, pack in self.bundled().items():
             seen = {}
             for line in pack.messages():
                 key = re.sub(r"[^a-z0-9 ]", "", line.lower())
@@ -483,6 +488,153 @@ class ConfigTests(unittest.TestCase):
         cfg = Config(title="Pep", min_minutes=5, active_days=[0, 4])
         cfg.save()
         self.assertEqual(Config.load().as_dict(), cfg.as_dict())
+
+
+class AITests(unittest.TestCase):
+    """Every AI path has to degrade to the bundled packs, never to silence."""
+
+    def setUp(self):
+        self.original = ai.complete
+        self.addCleanup(self.restore)
+        for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "STICKYNOTE_AI_KEY"):
+            os.environ.pop(name, None)
+        shutil.rmtree(paths.user_packs_dir(), ignore_errors=True)
+
+    def restore(self):
+        ai.complete = self.original
+        if paths.ai_path().exists():
+            paths.ai_path().unlink()
+        shutil.rmtree(paths.user_packs_dir(), ignore_errors=True)
+
+    def replies(self, text):
+        ai.complete = lambda *a, **k: text
+
+    def raises(self, message="the network is on fire"):
+        def boom(*_a, **_k):
+            raise ai.AIError(message)
+        ai.complete = boom
+
+    def test_a_stored_key_is_not_world_readable(self):
+        ai.save_credentials("openai", "sk-secret")
+        mode = paths.ai_path().stat().st_mode & 0o777
+        self.assertEqual(mode, 0o600, f"ai.json is {oct(mode)}")
+
+    def test_a_stored_key_round_trips(self):
+        ai.save_credentials("anthropic", "sk-ant", "claude-3-5-haiku-latest")
+        creds = ai.load_credentials()
+        self.assertEqual(creds.provider, "anthropic")
+        self.assertEqual(creds.api_key, "sk-ant")
+        self.assertEqual(creds.resolved_model, "claude-3-5-haiku-latest")
+
+    def test_an_environment_key_is_enough(self):
+        os.environ["OPENAI_API_KEY"] = "sk-env"
+        try:
+            self.assertEqual(ai.load_credentials().api_key, "sk-env")
+        finally:
+            del os.environ["OPENAI_API_KEY"]
+
+    def test_no_key_anywhere_reads_as_unconfigured(self):
+        self.assertIsNone(ai.load_credentials())
+        self.assertFalse(ai.configured())
+
+    def test_an_unknown_provider_is_refused(self):
+        with self.assertRaises(ai.AIError):
+            ai.save_credentials("hal9000", "key")
+
+    def test_model_formatting_is_parsed_defensively(self):
+        """Models number things and add preambles however firmly you ask."""
+        text = (
+            "Sure! Here are some:\n"
+            "1. You are doing fine.\n"
+            "2) Drink some water, seriously.\n"
+            '- "Small steps still count."\n'
+            "* Nothing is on fire right now.\n"
+            "\n"
+            "Hope these help!"
+        )
+        lines = ai.lines_from(text)
+        self.assertIn("You are doing fine.", lines)
+        self.assertIn("Drink some water, seriously.", lines)
+        self.assertIn("Small steps still count.", lines)
+        self.assertIn("Nothing is on fire right now.", lines)
+
+    def test_generation_drops_lines_that_already_exist(self):
+        existing = messages.load(["funny"])[0]
+        self.replies(f"{existing}\nA line nobody has written before, honestly.")
+        fresh = brew.generate(5)
+        self.assertNotIn(existing, fresh)
+        self.assertIn("A line nobody has written before, honestly.", fresh)
+
+    def test_generation_stops_instead_of_looping_on_a_stale_model(self):
+        """A model with nothing new to say must not be paid to repeat itself."""
+        self.replies(messages.load(["funny"])[0])
+        calls = []
+        original = ai.complete
+        ai.complete = lambda *a, **k: (calls.append(1), original(*a, **k))[1]
+        self.assertEqual(brew.generate(50), [])
+        self.assertLessEqual(len(calls), 2)
+
+    def test_generated_lines_land_in_the_user_pack_only(self):
+        self.replies("A freshly brewed and entirely original note.")
+        brew.save(brew.generate(1))
+        folder = paths.user_packs_dir() / brew.GENERATED_PACK
+        self.assertTrue((folder / "messages.txt").exists())
+        self.assertIn(brew.GENERATED_PACK, packs.available())
+        self.assertFalse((paths.BUNDLED_PACKS / brew.GENERATED_PACK).exists())
+
+    def test_saving_twice_does_not_duplicate(self):
+        brew.save(["A note that will be saved two times over."])
+        total = brew.save(["A note that will be saved two times over."])
+        self.assertEqual(total, 1)
+
+    def test_live_mode_falls_back_when_the_api_fails(self):
+        self.raises()
+        cfg = Config(ai_live=True)
+        self.assertEqual(brew.live_line(cfg, "the bundled one"), "the bundled one")
+
+    def test_live_mode_falls_back_on_an_empty_reply(self):
+        self.replies("   \n\n")
+        cfg = Config(ai_live=True)
+        self.assertEqual(brew.live_line(cfg, "the bundled one"), "the bundled one")
+
+    def test_live_mode_is_skipped_entirely_when_off(self):
+        self.raises("this must never be called")
+        self.assertEqual(brew.live_line(Config(), "the bundled one"), "the bundled one")
+
+    def test_a_broken_api_still_delivers_a_notification(self):
+        """The whole point: no API means the bundled pack, not silence."""
+        self.raises()
+        now = at("2026-07-27", "10:00")
+        cfg = Config(ai_live=True, require_activity=False)
+        state = State(next_fire=(now - timedelta(minutes=1)).timestamp())
+        sent = []
+        result = scheduler.tick(cfg, state, now, sent.append)
+        self.assertEqual(result.action, "fired")
+        self.assertEqual(len(sent), 1)
+        self.assertIn(sent[0], messages.load(cfg.packs))
+
+    def test_refill_only_triggers_when_asked_and_running_low(self):
+        pool = [f"line {i}" for i in range(50)]
+        self.assertFalse(brew.needs_refill(Config(), [], pool))
+
+        eager = Config(ai_auto_refill=True, ai_refill_threshold=40)
+        self.assertFalse(brew.needs_refill(eager, [], pool))
+        self.assertTrue(brew.needs_refill(eager, pool[:20], pool))
+
+    def test_translation_refuses_a_short_batch_rather_than_shrinking_a_pack(self):
+        self.replies("une ligne")
+        with self.assertRaises(ai.AIError):
+            translate.translate_lines(["one", "two", "three"], "fr")
+
+    def test_translation_writes_an_editable_user_pack(self):
+        source = packs.get("sincere").messages()
+        self.replies("\n".join(f"ligne numero {i}" for i in range(translate.BATCH)))
+
+        # One batch's worth keeps the stubbed reply honest about line counts.
+        translate.translate_lines(source[:translate.BATCH], "fr")
+        packs.write_pack("sincere-fr", "Sincere (French)", "test", "fr", ["ligne un"])
+        self.assertEqual(packs.get("sincere-fr").language, "fr")
+        self.assertFalse(packs.get("sincere-fr").bundled)
 
 
 class WizardTests(unittest.TestCase):

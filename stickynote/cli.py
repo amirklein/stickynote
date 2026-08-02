@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import os
 import random
 import re
@@ -15,6 +16,8 @@ from typing import Optional, Tuple
 
 from . import (
     activity,
+    ai,
+    brew,
     launchagent,
     messages,
     migrate,
@@ -23,6 +26,7 @@ from . import (
     packs,
     paths,
     scheduler,
+    translate,
     wizard,
 )
 from .config import Config, coerce
@@ -430,6 +434,124 @@ def _set_app_icon(cfg: Config, value: str) -> int:
     return 0
 
 
+def cmd_ai(args) -> int:
+    if args.action == "status":
+        try:
+            creds = ai.load_credentials()
+        except ai.AIError as exc:
+            print(f"credentials    unreadable: {exc}", file=sys.stderr)
+            return 1
+        cfg = Config.load()
+        if creds is None:
+            print("credentials    none (run `stickynote ai login`)")
+        else:
+            source = "ai.json" if paths.ai_path().exists() else "environment"
+            print(f"credentials    {creds.provider} via {source}")
+            print(f"model          {creds.resolved_model}")
+        print(f"auto refill    {'on' if cfg.ai_auto_refill else 'off'}"
+              f" (below {cfg.ai_refill_threshold} unseen, add {cfg.ai_refill_count})")
+        print(f"live mode      {'on' if cfg.ai_live else 'off'}"
+              f", {cfg.ai_live_timeout:g}s timeout then falls back")
+        print(f"style          {cfg.ai_style or '(none)'}")
+        brewed = packs.get(brew.GENERATED_PACK)
+        print(f"brewed pack    {len(brewed.messages()) if brewed else 0} lines")
+        return 0
+
+    if args.action == "logout":
+        if paths.ai_path().exists():
+            paths.ai_path().unlink()
+            print(f"removed {paths.ai_path()}")
+        else:
+            print("no stored credentials")
+        return 0
+
+    provider = args.provider or wizard.choose(
+        "Which provider?",
+        [(name, f"default model {spec['model']}") for name, spec in ai.PROVIDERS.items()],
+    )
+    key = args.key or getpass.getpass(f"{provider} API key (not echoed): ").strip()
+    if not key:
+        print("no key given, nothing saved", file=sys.stderr)
+        return 1
+
+    try:
+        ai.save_credentials(provider, key, args.model or "")
+    except ai.AIError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    print(f"saved to {paths.ai_path()} (readable only by you)")
+    print("try it with: stickynote brew --count 10 --review")
+    return 0
+
+
+def cmd_brew(args) -> int:
+    cfg = _load_config()
+
+    def progress(have: int, want: int, added: int) -> None:
+        if not args.quiet:
+            print(f"  {have}/{want} kept ({added} new in that batch)")
+
+    if not args.quiet:
+        print(f"asking for {args.count} new notes ...")
+    try:
+        fresh = brew.generate(args.count, args.style or cfg.ai_style,
+                              on_batch=progress)
+    except ai.AIError as exc:
+        print(f"could not generate: {exc}", file=sys.stderr)
+        return 1
+
+    if not fresh:
+        print("nothing new came back; everything it offered already exists")
+        return 0
+
+    if args.review:
+        kept = []
+        print(f"\n{len(fresh)} candidates. y to keep, n to drop, q to stop.\n")
+        for index, line in enumerate(fresh, start=1):
+            answer = input(f"{index:>3}/{len(fresh)}  {line}\n     keep? [Y/n/q] ").strip().lower()
+            if answer in ("q", "quit"):
+                break
+            if answer not in ("n", "no"):
+                kept.append(line)
+        fresh = kept
+        print()
+
+    total = brew.save(fresh)
+    print(f"added {len(fresh)} to the '{brew.GENERATED_PACK}' pack ({total} in it now)")
+
+    if brew.GENERATED_PACK not in cfg.packs:
+        print(f"\nit is not in use yet. To draw from it:")
+        print(f"    stickynote packs {','.join(cfg.packs + [brew.GENERATED_PACK])}")
+    return 0
+
+
+def cmd_translate(args) -> int:
+    print("A caution before the API bill: machine translation handles the")
+    print("sincere pack well and the funny one badly, because timing and")
+    print("wordplay are exactly what it loses. Expect to want a native")
+    print("speaker's pass over the result, which is why it lands as an")
+    print("ordinary editable pack.\n")
+
+    source = packs.get(args.pack)
+    if source is None:
+        print(f"no pack called {args.pack!r}. Try: {', '.join(packs.available())}",
+              file=sys.stderr)
+        return 2
+
+    name = translate.language_name(args.to)
+    print(f"translating {len(source.messages())} lines from {args.pack} into {name} ...")
+    try:
+        pack_id = translate.translate_pack(args.pack, args.to, args.id or "")
+    except ai.AIError as exc:
+        print(f"could not translate: {exc}", file=sys.stderr)
+        return 1
+
+    folder = packs.user_packs_dir() / pack_id
+    print(f"\nwrote {folder}")
+    print(f"read it through, fix what fell flat, then: stickynote packs {pack_id}")
+    return 0
+
+
 def cmd_setup(args) -> int:
     if migrate.pending():
         print("found an old cheerbot install, carrying it over first:")
@@ -636,6 +758,25 @@ def build_parser() -> argparse.ArgumentParser:
 
     subs.add_parser("migrate", help="carry over an install of the old cheerbot")
 
+    ai_cmd = subs.add_parser("ai", help="connect a model for writing and translating")
+    ai_cmd.add_argument(
+        "action", nargs="?", default="login", choices=("login", "status", "logout"),
+    )
+    ai_cmd.add_argument("--provider", choices=sorted(ai.PROVIDERS))
+    ai_cmd.add_argument("--key", help="pass the key directly instead of being prompted")
+    ai_cmd.add_argument("--model", help="override the provider's default model")
+
+    brew_cmd = subs.add_parser("brew", help="generate new notes into a local pack")
+    brew_cmd.add_argument("-n", "--count", type=int, default=50, help="how many to keep")
+    brew_cmd.add_argument("--style", help='guidance, e.g. "dry, British, no exclamation marks"')
+    brew_cmd.add_argument("--review", action="store_true", help="approve them one by one")
+    brew_cmd.add_argument("--quiet", action="store_true", help="no progress output")
+
+    translate_cmd = subs.add_parser("translate", help="translate a pack into another language")
+    translate_cmd.add_argument("pack", help="which pack to translate")
+    translate_cmd.add_argument("--to", required=True, help="language code or name, e.g. fr")
+    translate_cmd.add_argument("--id", help="name for the new pack (default: <pack>-<lang>)")
+
     pack_cmd = subs.add_parser("packs", help="list theme packs, or switch to others")
     pack_cmd.add_argument(
         "use", nargs="?",
@@ -684,6 +825,9 @@ _HANDLERS = {
     "migrate": cmd_migrate,
     "packs": cmd_packs,
     "setup": cmd_setup,
+    "ai": cmd_ai,
+    "brew": cmd_brew,
+    "translate": cmd_translate,
     "demo": cmd_demo,
     "alerts": cmd_alerts,
     "now": cmd_now,
