@@ -80,6 +80,10 @@ class Config:
     # Free-text guidance handed to the model, e.g. "dry, British, no exclamation marks".
     ai_style: str = ""
 
+    # Agent hooks ignore the active-hours window, since an agent finishing at
+    # 23:00 is exactly when you want to know, but they do respect a pause.
+    hooks_respect_pause: bool = True
+
     @classmethod
     def load(cls) -> "Config":
         path = paths.config_path()
