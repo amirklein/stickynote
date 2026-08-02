@@ -126,3 +126,40 @@ def kickstart() -> None:
         ["/bin/launchctl", "kickstart", f"{_domain()}/{paths.LABEL}"],
         check=False,
     )
+
+
+def write_menubar_plist() -> Path:
+    """A separate job for the menu bar item, so it can be wanted independently.
+
+    Folding it into the notification agent would mean anyone who wants notes
+    also gets an icon in their menu bar, and anyone who quits the icon loses
+    their notes.
+    """
+    plist = paths.menubar_plist_path()
+    plist.parent.mkdir(parents=True, exist_ok=True)
+
+    job = {
+        "Label": paths.MENUBAR_LABEL,
+        "ProgramArguments": [sys.executable, "-m", "stickynote", "settings",
+                             "--menu-bar"],
+        "RunAtLoad": True,
+        "KeepAlive": False,
+        "StandardOutPath": str(paths.log_path()),
+        "StandardErrorPath": str(paths.log_path()),
+        "EnvironmentVariables": {"PYTHONPATH": str(paths.PACKAGE_ROOT.parent)},
+    }
+    with plist.open("wb") as handle:
+        plistlib.dump(job, handle)
+    return plist
+
+
+def load_menubar() -> None:
+    plist = paths.menubar_plist_path()
+    _run(["/bin/launchctl", "bootout", f"{_domain()}/{paths.MENUBAR_LABEL}"], check=False)
+    _run(["/bin/launchctl", "bootstrap", _domain(), str(plist)], check=False)
+
+
+def unload_menubar() -> None:
+    _run(["/bin/launchctl", "bootout", f"{_domain()}/{paths.MENUBAR_LABEL}"], check=False)
+    if paths.menubar_plist_path().exists():
+        paths.menubar_plist_path().unlink()
