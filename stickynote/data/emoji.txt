@@ -1,5 +1,5 @@
 # Emoji pool for the notification title slot. One per line; #comments ignored.
-# Run `cheerbot emoji edit` to make your own copy in ~/.config/cheerbot/emoji.txt.
+# Run `stickynote emoji edit` to make your own copy in ~/.config/stickynote/emoji.txt.
 
 ✨
 🌱

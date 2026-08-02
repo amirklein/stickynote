@@ -1,21 +1,33 @@
 [project]
-name = "cheerbot"
-version = "0.1.0"
-description = "Random encouraging notifications on macOS"
+name = "stickynote"
+version = "1.0.0"
+description = "Cute, funny sticky notes that appear on your Mac when you need them"
+readme = "README.md"
 requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["macos", "notifications", "encouragement", "launchd"]
 # Standard library only, on purpose: it has to run under the system python
-# from a launchd job with no virtualenv.
+# from a launchd job with no virtualenv, and it has to keep working offline.
 dependencies = []
 
+[project.urls]
+Homepage = "https://github.com/amirklein/stickynote"
+
 [project.scripts]
-cheerbot = "cheerbot.cli:main"
+stickynote = "stickynote.cli:main"
 
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["cheerbot"]
+packages = ["stickynote"]
 
 [tool.setuptools.package-data]
-cheerbot = ["data/*"]
+stickynote = [
+    "data/*.txt",
+    "data/*.swift",
+    "data/*.applescript",
+    "data/packs/*/*.txt",
+    "data/packs/*/*.json",
+]

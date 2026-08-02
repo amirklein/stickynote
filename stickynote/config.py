@@ -1,4 +1,4 @@
-"""User configuration: when cheerbot is allowed to speak, and how."""
+"""User configuration: when stickynote is allowed to speak, and how."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ class Config:
     active_end: str = "21:00"
     # 0 = Monday ... 6 = Sunday.
     active_days: List[int] = field(default_factory=lambda: [0, 1, 2, 3, 4, 5, 6])
-    title: str = "Cheerbot"
+    title: str = "Sticky Note"
     # "random" draws from the emoji pool, "off" empties the slot, anything else
     # is used literally.
     emoji: str = "random"
@@ -36,14 +36,14 @@ class Config:
     emoji_placement: str = "auto"
     # The app's own icon: an emoji, or a path to an image. Baked in at install
     # time, since macOS freezes it at the first permission grant.
-    app_icon: str = "🌱"
+    app_icon: str = "📝"
     # Bumped whenever app_icon changes, to present macOS with a bundle
     # identifier it has not cached an icon for. See nativeapp.bundle_id.
     bundle_generation: int = 1
     # Any macOS alert sound name, or "" for silent.
     sound: str = ""
     # How long the notification stays on screen, in seconds. Only has an effect
-    # once Cheerbot is set to Alerts in System Settings; a banner is dismissed
+    # once Sticky Note is set to Alerts in System Settings; a banner is dismissed
     # by the system after about five seconds no matter what. 0 leaves it up
     # until dismissed.
     linger_seconds: float = 15.0

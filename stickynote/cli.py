@@ -13,7 +13,16 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple
 
-from . import activity, launchagent, messages, nativeapp, notifier, paths, scheduler
+from . import (
+    activity,
+    launchagent,
+    messages,
+    migrate,
+    nativeapp,
+    notifier,
+    paths,
+    scheduler,
+)
 from .config import Config, coerce
 from .state import State
 
@@ -139,7 +148,7 @@ def cmd_surprise(_args) -> int:
     cfg = scheduler.randomize(Config.load())
     cfg.save()
     _reschedule(cfg, "timing re-rolled; next nudge")
-    print("run `cheerbot config` if you'd rather see what it picked")
+    print("run `stickynote config` if you'd rather see what it picked")
     return 0
 
 
@@ -198,10 +207,10 @@ def cmd_alerts(_args) -> int:
     """
     print("macOS only lets you set this by hand, so:")
     print()
-    print("  1. In the window opening now, find Cheerbot in the app list")
+    print("  1. In the window opening now, find Sticky Note in the app list")
     print("  2. Choose 'Alerts' instead of 'Banners'")
     print()
-    print("Earlier icon changes can leave more than one entry named Cheerbot.")
+    print("Earlier icon changes can leave more than one entry named Sticky Note.")
     print("The live one is the entry showing your current app icon.")
     print()
     print("Banners are taken off screen by the system after about five seconds")
@@ -226,7 +235,7 @@ def cmd_status(_args) -> int:
         resume_at = datetime.fromtimestamp(state.paused_until)
         status = f"paused until {resume_at:%a %H:%M} ({_humanize(resume_at - now)})"
     elif not launchagent.is_loaded():
-        status = "not running (run: cheerbot start)"
+        status = "not running (run: stickynote start)"
     else:
         status = "running"
 
@@ -281,7 +290,7 @@ def cmd_status(_args) -> int:
 def _build_notifier(cfg: Config, force_applet: bool = False) -> str:
     """Build the best notification bundle this machine can manage."""
     if not force_applet and nativeapp.available():
-        print("building Cheerbot.app with native badge support ...")
+        print("building StickyNote.app with native badge support ...")
         try:
             nativeapp.build(cfg.app_icon, cfg.bundle_generation)
             return "native"
@@ -297,7 +306,28 @@ def _build_notifier(cfg: Config, force_applet: bool = False) -> str:
     return "applet"
 
 
+def cmd_migrate(_args) -> int:
+    if not paths.legacy_home().is_dir():
+        print("nothing to migrate: no old cheerbot install found")
+        return 0
+
+    for line in migrate.run():
+        print(f"  {line}")
+    print()
+    print("macOS ties notification permission to the bundle identifier, which")
+    print("has changed, so run `stickynote start` and approve the prompt again.")
+    print("The old Cheerbot entry stays in System Settings; macOS gives no way")
+    print("to remove it.")
+    return 0
+
+
 def cmd_start(args) -> int:
+    if migrate.pending():
+        print("found an old cheerbot install, carrying it over first:")
+        for line in migrate.run():
+            print(f"  {line}")
+        print()
+
     cfg = _load_config()
     if not cfg.enabled:
         cfg.enabled = True
@@ -321,7 +351,7 @@ def cmd_start(args) -> int:
         title, badge = _compose(cfg, badge)
         try:
             notifier.send(
-                title, "Cheerbot is on. I'll check in now and then.",
+                title, "Sticky Note is on. I'll check in now and then.",
                 cfg.sound, badge, cfg.linger_seconds,
             )
         except notifier.NotifyError as exc:
@@ -389,7 +419,7 @@ def _set_app_icon(cfg: Config, value: str) -> int:
 
     print(f"app_icon = {described}")
     print(f"bundle identifier will become {nativeapp.bundle_id(cfg.bundle_generation)}")
-    print("run `cheerbot start` to rebuild; macOS will ask for notification")
+    print("run `stickynote start` to rebuild; macOS will ask for notification")
     print("permission again, and the old entry in System Settings can be deleted")
     return 0
 
@@ -488,8 +518,8 @@ def cmd_emoji(args) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="cheerbot",
-        description="Random encouraging notifications on macOS.",
+        prog="stickynote",
+        description="Cute, funny sticky notes that turn up on your Mac.",
     )
     subs = parser.add_subparsers(dest="command", required=True)
 
@@ -497,7 +527,7 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument(
         "--no-app",
         action="store_true",
-        help="skip building Cheerbot.app (notifications fall back to osascript)",
+        help="skip building StickyNote.app (notifications fall back to osascript)",
     )
     start.add_argument(
         "--applet",
@@ -511,6 +541,8 @@ def build_parser() -> argparse.ArgumentParser:
     subs.add_parser("surprise", help="re-roll the timing settings at random")
 
     subs.add_parser("alerts", help="switch macOS to the longer-lasting alert style")
+
+    subs.add_parser("migrate", help="carry over an install of the old cheerbot")
 
     demo = subs.add_parser("demo", help="watch a burst of notifications up close")
     demo.add_argument("-n", "--count", type=int, default=5, help="how many to send")
@@ -551,6 +583,7 @@ _HANDLERS = {
     "stop": cmd_stop,
     "status": cmd_status,
     "surprise": cmd_surprise,
+    "migrate": cmd_migrate,
     "demo": cmd_demo,
     "alerts": cmd_alerts,
     "now": cmd_now,
@@ -566,7 +599,7 @@ _HANDLERS = {
 def main(argv: Optional[list] = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command in ("messages", "emoji") and args.action == "add" and not args.text:
-        print(f'usage: cheerbot {args.command} add "..."', file=sys.stderr)
+        print(f'usage: stickynote {args.command} add "..."', file=sys.stderr)
         return 2
     try:
         return _HANDLERS[args.command](args)
