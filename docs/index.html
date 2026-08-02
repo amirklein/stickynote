@@ -163,28 +163,62 @@ h1 {
 
 .install-note a { color: inherit; }
 
-/* ---------- screenshots ---------- */
+/* ---------- notification demo ---------- */
 
 .stage {
-  margin: 60px 0 0;
+  margin: 64px 0 0;
   display: flex;
   justify-content: center;
 }
 
-/* Cropped to the window itself, with the macOS shadow discarded: a captured
-   shadow cropped part way through its fade reads as a grey box on the light
-   background. The radii below match the real corners so the shadow follows
-   them instead of cutting square. */
+/* Drawn rather than screenshotted. A real capture of a macOS banner is grey
+   on grey, and against the warm paper it reads as a dull box; this keeps the
+   proportions and the type but lets the note carry the palette. */
+.notification {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+  padding: 14px 15px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.82);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 12px 40px rgba(29,28,25,.18);
+  transition: opacity .45s ease, transform .45s ease;
+}
+
+.notification.fading { opacity: 0; transform: translateY(-6px); }
+
+.app-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 9px;
+  background: linear-gradient(160deg, #ffe66d, #f7b733);
+  display: grid;
+  place-items: center;
+  font-size: 21px;
+  box-shadow: inset 0 0 0 .5px rgba(0,0,0,.08);
+}
+
+.n-body { flex: 1; min-width: 0; }
+.n-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.n-title { font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; }
+.n-time { font-size: 12px; color: var(--muted); flex: none; }
+.n-text { font-size: 13.5px; line-height: 1.4; margin-top: 1px; }
+.n-badge { font-size: 26px; align-self: center; flex: none; }
+
+/* The settings window, which is a real capture: cropped to the window with
+   the macOS shadow discarded, since a shadow cropped part way through its
+   fade reads as a grey box. The radius matches the real corners so the
+   shadow below follows them instead of cutting square. */
 .shot {
   max-width: 100%;
   height: auto;
   display: block;
-}
-
-.note-shot {
-  width: 470px;
-  border-radius: 21px;
-  box-shadow: 0 14px 44px rgba(29,28,25,.20), 0 2px 8px rgba(29,28,25,.10);
 }
 
 .window-shot {
@@ -278,22 +312,6 @@ h2 {
   .pack { grid-template-columns: 1fr auto; }
   .pack-desc { grid-column: 1 / -1; }
 }
-
-/* a note on rotation, to show the range without faking a notification */
-
-.sampler {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 26px;
-  padding: 20px 24px;
-  border-left: 3px solid var(--note-deep);
-  transition: opacity .4s ease;
-}
-
-.sampler.fading { opacity: 0; }
-.sampler p { margin: 0; font-size: 18px; font-style: italic; letter-spacing: -.01em; }
-.sampler-badge { font-size: 24px; flex: none; }
 
 /* code sample */
 
@@ -421,9 +439,19 @@ footer a:hover { border-bottom-color: var(--ink); }
     </p>
 
     <div class="stage">
-      <img src="note-light.png" alt="A macOS notification reading: The universe is chaos and you made a spreadsheet. Genuinely heroic." width="682" height="140" class="shot note-shot">
+      <div class="notification" id="note">
+        <div class="app-icon">📝</div>
+        <div class="n-body">
+          <div class="n-head">
+            <span class="n-title">Sticky Note</span>
+            <span class="n-time">now</span>
+          </div>
+          <div class="n-text" id="note-text">You are a temporarily assembled pile of atoms doing calculus. That's already showing off.</div>
+        </div>
+        <div class="n-badge" id="note-badge">✨</div>
+      </div>
     </div>
-    <p class="stage-caption">An actual note, caught in the corner of an actual screen.</p>
+    <p class="stage-caption">Real notes from the <b>funny</b> pack, on rotation.</p>
   </div>
 </header>
 
@@ -460,10 +488,6 @@ footer a:hover { border-bottom-color: var(--ink); }
       </div>
     </div>
 
-    <div class="sampler">
-      <span class="sampler-badge" id="sampler-badge">🪐</span>
-      <p id="sampler">The universe is chaos and you made a spreadsheet. Genuinely heroic.</p>
-    </div>
   </div>
 </section>
 
@@ -634,22 +658,23 @@ stickynote hooks install</pre>
     ["Being tired is not the same as being behind.", "🌙"]
   ];
 
-  var sampler = document.getElementById('sampler');
-  var samplerBadge = document.getElementById('sampler-badge');
+  var text = document.getElementById('note-text');
+  var badge = document.getElementById('note-badge');
+  var card = document.getElementById('note');
   var index = 0;
 
-  // Respect a stated preference for less motion; the first note reads fine
-  // on its own as a single example.
+  // Respect a stated preference for less motion; the notes still read fine
+  // as a single static example.
   var still = window.matchMedia('(prefers-reduced-motion: reduce)');
-  if (sampler && !still.matches) {
+  if (!still.matches) {
     setInterval(function () {
-      sampler.parentNode.classList.add('fading');
+      card.classList.add('fading');
       setTimeout(function () {
         index = (index + 1) % notes.length;
-        sampler.textContent = notes[index][0];
-        samplerBadge.textContent = notes[index][1];
-        sampler.parentNode.classList.remove('fading');
-      }, 400);
+        text.textContent = notes[index][0];
+        badge.textContent = notes[index][1];
+        card.classList.remove('fading');
+      }, 450);
     }, 4200);
   }
 
