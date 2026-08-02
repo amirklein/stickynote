@@ -101,34 +101,32 @@ draw("Cute, funny notes that turn up on your Mac", at: NSPoint(x: 96, y: 300),
 draw("when you need them.", at: NSPoint(x: 96, y: 254),
      size: 34, weight: .regular, color: muted, tracking: -0.4)
 
-// The real notification, screenshotted, rather than an imitation of one: this
-// card is the first thing anyone sees of the product. The dark capture, even
-// though the site itself is light -- the light one is grey on cream, and at
-// the size a feed renders this it disappears.
-let bannerPath = "docs/note-dark.png"
-let bannerRect = NSRect(x: 92, y: 84, width: 620, height: 132)
+// A small notification, so the thing being offered is visible at a glance.
+// Drawn rather than screenshotted, for the same reason as on the page: a real
+// macOS banner is grey on grey and sinks into the warm background.
+let cardRect = NSRect(x: 96, y: 74, width: 620, height: 96)
 
-// The shadow is cast by a rounded rect drawn underneath rather than by the
-// image itself: shadowing a bitmap traces its bounding box, which leaves a
-// grey rectangle poking out around the rounded corners. Save and restore the
-// graphics state to remove it afterwards -- a fresh NSShadow is not "no
-// shadow", it defaults to a third-opacity black one.
+// Save and restore around the shadow: a fresh NSShadow is not "no shadow",
+// it defaults to a third-opacity black one, which would then be cast by
+// everything drawn afterwards.
 NSGraphicsContext.saveGraphicsState()
-let bannerShadow = NSShadow()
-bannerShadow.shadowColor = NSColor.black.withAlphaComponent(0.22)
-bannerShadow.shadowBlurRadius = 28
-bannerShadow.shadowOffset = NSSize(width: 0, height: -9)
-bannerShadow.set()
-NSColor.black.setFill()
-rounded(bannerRect.insetBy(dx: 3, dy: 3), 27).fill()
+let cardShadow = NSShadow()
+cardShadow.shadowColor = NSColor.black.withAlphaComponent(0.12)
+cardShadow.shadowBlurRadius = 26
+cardShadow.shadowOffset = NSSize(width: 0, height: -8)
+cardShadow.set()
+NSColor.white.setFill()
+rounded(cardRect, 20).fill()
 NSGraphicsContext.restoreGraphicsState()
 
-if let banner = NSImage(contentsOfFile: bannerPath) {
-    banner.draw(in: bannerRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-} else {
-    FileHandle.standardError.write("missing \(bannerPath)\n".data(using: .utf8)!)
-    exit(1)
-}
+let iconRect = NSRect(x: 118, y: 96, width: 52, height: 52)
+NSGradient(starting: noteYellow, ending: noteAmber)?.draw(in: rounded(iconRect, 12), angle: -70)
+draw("📝", at: NSPoint(x: 129, y: 106), size: 30, weight: .regular, color: ink)
+
+draw("Sticky Note", at: NSPoint(x: 188, y: 122), size: 19, weight: .semibold, color: ink)
+draw("The universe is chaos and you made a spreadsheet.", at: NSPoint(x: 188, y: 94),
+     size: 19, weight: .regular, color: muted)
+draw("🪐", at: NSPoint(x: 648, y: 104), size: 34, weight: .regular, color: ink)
 
 draw("Free · open source · everything stays on your machine",
      at: NSPoint(x: 98, y: 30), size: 19, weight: .medium, color: muted)
