@@ -1,5 +1,7 @@
 # Sticky Note
 
+**[stickynote website →](https://amirklein.github.io/stickynote/)**
+
 Cute, funny sticky notes that turn up on your Mac when you need them. A
 background LaunchAgent picks a random moment inside your active hours, picks a
 note you haven't seen recently, and puts it in Notification Center.

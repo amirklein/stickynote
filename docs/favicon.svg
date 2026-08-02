@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#ffe66d"/>
+      <stop offset="1" stop-color="#f5b733"/>
+    </linearGradient>
+  </defs>
+  <!-- Tilted so it reads as a stuck-on note even at 16px. -->
+  <g transform="rotate(-8 32 32)">
+    <rect x="11" y="11" width="42" height="42" rx="5" fill="url(#paper)"/>
+    <g fill="#1d1c19" opacity=".26">
+      <rect x="19" y="22" width="26" height="3.4" rx="1.7"/>
+      <rect x="19" y="30" width="26" height="3.4" rx="1.7"/>
+      <rect x="19" y="38" width="15" height="3.4" rx="1.7"/>
+    </g>
+  </g>
+</svg>
