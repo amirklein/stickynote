@@ -177,6 +177,11 @@ def _write_info_plist(contents: Path, generation: int) -> None:
         "LSMinimumSystemVersion": "11.0",
         # Keep it out of the Dock and the app switcher.
         "LSUIElement": True,
+        # Recorded so the settings window can re-enter Python when macOS
+        # launches the bundle with no arguments, which is what happens when
+        # someone opens it from Spotlight rather than through the CLI.
+        "StickyNotePython": sys.executable,
+        "StickyNotePythonPath": str(paths.PACKAGE_ROOT.parent),
     }
     with (contents / "Info.plist").open("wb") as handle:
         plistlib.dump(info, handle)

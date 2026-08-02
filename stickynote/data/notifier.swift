@@ -173,7 +173,21 @@ final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
     }
 }
 
-let arguments = Array(CommandLine.arguments.dropFirst())
+var arguments = Array(CommandLine.arguments.dropFirst())
+
+// LaunchServices has historically appended a process serial number when
+// opening a bundle, and nothing below wants to see it.
+if arguments.first?.hasPrefix("-psn_") == true {
+    arguments.removeFirst()
+}
+
+// Spotlight, Finder and the Dock all launch the bundle with no arguments,
+// which used to fall through to the usage line below and exit -- so clicking
+// the app appeared to do nothing whatsoever. Someone opening it by hand wants
+// the settings window; that is the only thing here they could mean.
+if arguments.isEmpty {
+    arguments = ["settings"]
+}
 
 switch arguments.first {
 case "render":
