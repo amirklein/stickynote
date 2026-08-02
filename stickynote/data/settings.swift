@@ -23,7 +23,15 @@ struct Runtime {
     var pythonPath: String
 
     static func parse(_ args: [String]) -> Runtime {
-        var runtime = Runtime(python: "/usr/bin/python3", pythonPath: "")
+        // The build records both in the bundle, so that a launch which carries
+        // no arguments at all -- from Spotlight, Finder or the Dock -- can
+        // still find the interpreter the app was installed with. Arguments,
+        // when there are any, win.
+        let info = Bundle.main.infoDictionary
+        var runtime = Runtime(
+            python: info?["StickyNotePython"] as? String ?? "/usr/bin/python3",
+            pythonPath: info?["StickyNotePythonPath"] as? String ?? ""
+        )
         var index = 0
         while index < args.count - 1 {
             switch args[index] {
@@ -389,6 +397,13 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool {
         return true
     }
+
+    /// Opening the app again while it is running should bring the window back
+    /// rather than silently doing nothing.
+    func applicationShouldHandleReopen(_ app: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        controller.show(model: model)
+        return true
+    }
 }
 
 /// The menu bar item: pause, a nudge on demand, and a way into the window.
@@ -406,6 +421,13 @@ final class MenuBarApp: NSObject, NSApplicationDelegate {
         status.button?.title = "📝"
         status.menu = buildMenu()
         item = status
+    }
+
+    /// With the menu bar item running, opening the app from Spotlight would
+    /// otherwise just activate this process and show nothing.
+    func applicationShouldHandleReopen(_ app: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        controller.show(model: model)
+        return true
     }
 
     private func buildMenu() -> NSMenu {
