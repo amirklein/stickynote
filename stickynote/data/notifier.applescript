@@ -1,12 +1,12 @@
--- Cheerbot notifier applet.
--- Compiled into ~/Applications/Cheerbot.app so notifications are attributed to
--- Cheerbot instead of a generic script host. Reads a three-line payload
+-- Sticky Note notifier applet.
+-- Compiled into ~/Applications/StickyNote.app so notifications are attributed to
+-- Sticky Note instead of a generic script host. Reads a three-line payload
 -- (title, body, sound name) written by the Python side just before launch.
 
 on run
-	set payloadFile to (POSIX path of (path to home folder)) & "Library/Application Support/Cheerbot/pending.txt"
+	set payloadFile to (POSIX path of (path to home folder)) & "Library/Application Support/Sticky Note/pending.txt"
 
-	set theTitle to "Cheerbot"
+	set theTitle to "Sticky Note"
 	set theBody to "You're doing better than you think."
 	set theSound to ""
 

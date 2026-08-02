@@ -2,10 +2,10 @@
 
 Three transports, best first:
 
-native      The Swift helper in Cheerbot.app. The only one that can put a badge
+native      The Swift helper in StickyNote.app. The only one that can put a badge
             image on the notification, and the only one with a real app icon.
 applet      The AppleScript applet, used when swiftc is unavailable. Correctly
-            attributed to Cheerbot, but text only.
+            attributed to Sticky Note, but text only.
 osascript   Last resort when no bundle is installed at all. Works, but the
             notification is attributed to whatever is hosting the script.
 """
@@ -76,7 +76,7 @@ def _via_applet(title: str, body: str, sound: str) -> None:
         ["/usr/bin/open", str(paths.app_path())], capture_output=True, text=True
     )
     if result.returncode != 0:
-        raise NotifyError(result.stderr.strip() or "failed to launch Cheerbot.app")
+        raise NotifyError(result.stderr.strip() or "failed to launch StickyNote.app")
 
 
 def _via_osascript(title: str, body: str, sound: str) -> None:

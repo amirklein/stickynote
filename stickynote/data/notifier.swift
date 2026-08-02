@@ -1,13 +1,13 @@
-// Cheerbot's notification helper.
+// Sticky Note's notification helper.
 //
 // AppleScript's `display notification` cannot carry an image, so anything with
 // a per-notification badge has to go through UserNotifications. This binary is
-// bundled into ~/Applications/Cheerbot.app and launched with `open`, which
+// bundled into ~/Applications/StickyNote.app and launched with `open`, which
 // matters: run directly from a terminal the request is attributed to the
 // terminal instead of this bundle and macOS refuses authorization outright.
 //
-//   cheerbot-notifier render <text> <out.png>
-//   cheerbot-notifier notify --title T --body B [--emoji E] [--sound S] [--linger N]
+//   stickynote-notifier render <text> <out.png>
+//   stickynote-notifier notify --title T --body B [--emoji E] [--sound S] [--linger N]
 
 import AppKit
 import UserNotifications
@@ -15,7 +15,7 @@ import UserNotifications
 // Diagnostics have to go to a file: when launched via `open` there is no
 // terminal attached to inherit stderr.
 let logURL = URL(fileURLWithPath: NSHomeDirectory())
-    .appendingPathComponent(".config/cheerbot/notifier.log")
+    .appendingPathComponent(".config/stickynote/notifier.log")
 
 func log(_ message: String) {
     let stamp = ISO8601DateFormatter().string(from: Date())
@@ -62,7 +62,7 @@ func renderBadge(_ text: String, to path: String, size: CGFloat = 512) -> Bool {
 }
 
 struct Options {
-    var title = "Cheerbot"
+    var title = "Sticky Note"
     var body = ""
     var emoji = ""
     var sound = ""
@@ -105,7 +105,7 @@ final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
                 log("authorization error: \(error.localizedDescription)")
             }
             guard granted else {
-                log("authorization denied; enable Cheerbot in System Settings > Notifications")
+                log("authorization denied; enable Sticky Note in System Settings > Notifications")
                 exit(2)
             }
             self.post(to: center)
@@ -117,7 +117,7 @@ final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
         // The system moves an attachment into its own store, so render into a
         // throwaway file rather than anything we want to keep.
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("cheerbot-\(UUID().uuidString).png")
+            .appendingPathComponent("stickynote-\(UUID().uuidString).png")
         guard renderBadge(options.emoji, to: url.path) else {
             log("could not render badge for \(options.emoji)")
             return nil
@@ -178,7 +178,7 @@ let arguments = Array(CommandLine.arguments.dropFirst())
 switch arguments.first {
 case "render":
     guard arguments.count >= 3 else {
-        log("usage: cheerbot-notifier render <text> <out.png>")
+        log("usage: stickynote-notifier render <text> <out.png>")
         exit(64)
     }
     exit(renderBadge(arguments[1], to: arguments[2]) ? 0 : 1)
@@ -190,7 +190,13 @@ case "notify":
     app.setActivationPolicy(.accessory)
     app.run()
 
+case "settings":
+    runSettings(Array(arguments.dropFirst()), asMenuBar: false)
+
+case "menubar":
+    runSettings(Array(arguments.dropFirst()), asMenuBar: true)
+
 default:
-    log("usage: cheerbot-notifier [render|notify] ...")
+    log("usage: stickynote-notifier [render|notify|settings|menubar] ...")
     exit(64)
 }

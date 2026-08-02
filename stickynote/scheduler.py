@@ -66,12 +66,12 @@ def tick(cfg: Config, state: State, now: datetime, deliver) -> TickResult:
     `deliver` is called with the chosen message only when it is time to fire;
     injecting it keeps this function pure enough to test.
     """
-    from . import activity, messages
+    from . import activity, brew, messages
 
     timestamp = now.timestamp()
 
     if not cfg.enabled:
-        return TickResult("disabled", detail="cheerbot is disabled")
+        return TickResult("disabled", detail="stickynote is disabled")
 
     if state.paused_until and timestamp < state.paused_until:
         resume_at = datetime.fromtimestamp(state.paused_until)
@@ -101,8 +101,14 @@ def tick(cfg: Config, state: State, now: datetime, deliver) -> TickResult:
         # you come back instead of being lost to an empty desk.
         return TickResult("idle", detail=activity.describe(cfg.max_idle_minutes))
 
-    message = messages.pick(messages.load(cfg.tone), state.recent)
+    pool = messages.load(cfg.packs)
+    message = brew.live_line(cfg, messages.pick(pool, state.recent))
     deliver(message)
+
+    # Topping the pool up happens after delivery and in a detached process, so
+    # a slow or broken API call can cost a fresh line but never a notification.
+    if brew.needs_refill(cfg, state.recent, pool):
+        brew.refill_in_background(cfg)
 
     scheduled = next_fire_after(cfg, now)
     state.next_fire = scheduled.timestamp()
