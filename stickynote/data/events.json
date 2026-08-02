@@ -1,0 +1,40 @@
+{
+  "done": {
+    "badge": "✅",
+    "lines": [
+      "{source} finished. Go and look at what it did.",
+      "{source} is done and awaiting your judgement.",
+      "That's {source} done. The reviewing part is still yours.",
+      "{source} has stopped typing. Your turn.",
+      "{source} finished, and is very much hoping you like it.",
+      "Job's done. {source} would like you to know it tried its best.",
+      "{source} is finished. No notes? Notes?",
+      "{source} wrapped up. Come see.",
+      "{source} has reached the end of the task and the end of its ideas.",
+      "Done. {source} is now idle, which is its favourite state and yours."
+    ]
+  },
+  "waiting": {
+    "badge": "🙋",
+    "lines": [
+      "{source} needs you before it can carry on.",
+      "{source} is waiting on a yes or a no.",
+      "{source} has a question and infinite patience.",
+      "{source} stopped to ask permission. Very polite of it.",
+      "{source} is blocked on you specifically.",
+      "{source} would like a decision when you have a moment.",
+      "{source} is holding the door open, waiting.",
+      "Something needs your approval over in {source}."
+    ]
+  },
+  "error": {
+    "badge": "🧯",
+    "lines": [
+      "{source} hit something it can't get past.",
+      "{source} has bad news and would like company.",
+      "{source} stopped early. Worth a look.",
+      "{source} ran into trouble. Not necessarily your trouble, but trouble.",
+      "Something went wrong in {source}."
+    ]
+  }
+}

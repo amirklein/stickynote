@@ -1,5 +1,4 @@
-# Encouragement with a sense of humour. Original lines, written somewhere in the
-# neighbourhood of Rick & Morty's cosmic shrug and The Office's earnest chaos.
+# Funny: Cosmic shrugs, office earnestness, and gentle nagging about water.
 # One per line; blank lines and #comments ignored.
 
 In an infinite universe there's a you who already fixed this. Rude of them not to help.
@@ -93,8 +92,6 @@ Ship it. Perfect is a stalling tactic wearing a nice coat.
 One day you'll look back on this problem and not remember it at all. That's how small it is.
 You made something exist that didn't exist before. That's the whole job, really.
 Nice work. I'd high-five you but I'm a notification.
-
-# --- Cosmic perspective, the cheerful kind of nihilism ---
 Infinite timelines, and in a fair number of them you already took the break. Catch up.
 The universe has no opinion about your inbox. Freeing, if you let it be.
 Every atom in you was forged in a dying star, and now it's doing code review. Wild trajectory.
@@ -129,8 +126,6 @@ Somewhere a supernova is happening and nobody's asking it for a status update.
 Existence: unlikely. You: here anyway. Odds already beaten.
 The cosmos runs on trial and error at unimaginable scale. You're just doing it smaller.
 Your problems have a half-life. Most of them are shorter than you think.
-
-# --- Science, failure, and the dignity of being wrong ---
 Every experiment that fails removes a wrong answer. You're clearing the board.
 A negative result is still a result. Write it down and move.
 Hypothesis, test, revise. You've been doing science all along without the lab coat.
@@ -146,8 +141,6 @@ Every expert has a graveyard of failed attempts behind them. Yours is well tende
 Measure twice, cut once, panic zero times. Aspirational, but we're getting there.
 You don't need a breakthrough today. Incremental is how most breakthroughs actually arrive.
 Falsify one assumption today. It's cheaper than being wrong for a month.
-
-# --- Sincere workplace enthusiasm, possibly too much of it ---
 I want you to know I believe in you, and I've told several people that. Some of them agreed.
 If there were an award for this you'd be shortlisted. I'd be on the committee. It'd be fine.
 You're doing a job most people couldn't spell. Genuinely impressive.
@@ -178,8 +171,6 @@ Consider yourself employee of the moment. Rolling award. Currently yours.
 If effort were currency you'd have retired already.
 Nobody's clapping, which is a scheduling problem, not a merit problem.
 You handled that with more grace than the situation deserved.
-
-# --- Intensity, discipline, and beet-farm work ethic ---
 Hardest thing first. Then the whole day is downhill and you're smug.
 You have more follow-through than you give yourself credit for. Demonstrably.
 Fact: momentum is real. Fact: you have some. Do not squander it.
@@ -195,8 +186,6 @@ Precision matters. So does knowing when it doesn't. You're learning both.
 You've already thought about the failure modes. That's why they rarely happen.
 Do it now and you own the rest of the day. Do it later and it owns you.
 Excellence is a habit, and habits are just decisions you stopped renegotiating.
-
-# --- Deadpan ---
 This is fine, and unusually, that's not sarcasm.
 Congratulations on the thing. You know the one.
 I've seen worse. I've mostly seen worse. You're comfortably above worse.
@@ -212,8 +201,6 @@ Doing fine. Not everything needs a highlight reel.
 You've survived every single one of your worst days so far. Perfect record.
 Adequate is underrated and you're comfortably past adequate.
 Look, it's not glamorous, but it's working.
-
-# --- For the part of you that thinks you're faking it ---
 The people you're comparing yourself to are also guessing. Louder, but guessing.
 Competence feels like confusion from the inside. That's just what it's like in here.
 You know more than you did last month and you'll deny that then too.
@@ -234,8 +221,6 @@ The thing you find easy is somebody's blocker. You've just stopped noticing.
 Give yourself the credit you'd hand a colleague without hesitating.
 You've never once been as unqualified as you felt.
 Expertise is mostly knowing which parts to worry about. You know.
-
-# --- Maintenance of the meat vehicle ---
 Shoulders. They're up by your ears again. Down.
 You have been sitting long enough that your legs have filed a report.
 Coffee is not a food group, though the effort is noted.
@@ -261,8 +246,6 @@ Roll your neck once. That sound is normal. Probably.
 Fresh air exists and is unaccountably free. Consider some.
 You're allowed to eat something warm, at a table, without a laptop. Radical.
 Put on a song you like. Productivity is mostly mood management anyway.
-
-# --- Shipping, and the tyranny of perfect ---
 Done is a feature. Ship it and iterate.
 The last ten percent is polish. The first ninety is the actual product. Weigh accordingly.
 Nobody has ever read your work as closely as you're reading it right now.
@@ -283,8 +266,6 @@ If it works and you understand it, that's two out of three. Ship.
 The thing you're afraid to show someone is the thing that most needs showing.
 Momentum beats masterpieces. Masterpieces are accumulated momentum anyway.
 Stop reading it. It's fine. Send it.
-
-# --- Small wins, and permission to stop ---
 Small things compound at a rate that feels fake until you look back.
 Whatever you finished, that's one fewer thing forever. Permanent progress.
 Progress you can't see is still progress. Ask any tree.
@@ -300,8 +281,6 @@ Wrap it up. You've been good company to yourself today.
 Whatever's left will be easier in the morning. It nearly always is.
 Call it. Good day. The next one starts fresh.
 You made progress on something that mattered. That's a full day's work.
-
-# --- Starting, and the tyranny of the blank page ---
 The blank page is not judging you. It literally cannot. It's a rectangle.
 Start with the worst possible sentence. You can fix a bad sentence; you can't fix nothing.
 The hardest part is the first ten seconds. After that you're just doing it.
@@ -317,8 +296,6 @@ Five minutes. Set a timer. You're allowed to stop after. You won't.
 The gap between thinking about it and doing it is where whole years go. Cross it.
 Starting is a skill, not a mood. You've got the skill even when you lack the mood.
 Version zero is allowed to be anything at all. That's what the zero is for.
-
-# --- Attention, and the people who keep taking it ---
 Your attention is the most valuable thing you own. Notice who keeps helping themselves to it.
 One thing at a time isn't a limitation, it's the only way anything gets finished.
 Multitasking is switching costs with better marketing.
@@ -334,8 +311,6 @@ You can't think clearly in a room full of alerts. Silence a few.
 Focus isn't concentration through gritted teeth. It's interest, protected.
 The tab you keep flicking to is not going to have good news. Let it be.
 Guard the good hours. Spend the bad ones on the easy stuff.
-
-# --- Meetings, mail, and other people's urgency ---
 That meeting could have been a message and you know it. Say so, kindly.
 Your calendar is a set of promises. Make fewer, keep more.
 Declining a meeting is not rudeness, it's arithmetic.
@@ -351,8 +326,6 @@ Ask the question. Fifteen minutes of embarrassment beats three days of guessing.
 Nobody remembers the meeting where you were quiet. Say the useful thing.
 Reply to the easy one first. Momentum counts even in a mailbox.
 Protect one afternoon a week from everybody. That's where the real work hides.
-
-# --- Learning, and the dignity of not knowing yet ---
 Being a beginner is uncomfortable and temporary. Being incurious is comfortable and permanent.
 You don't have to memorise it. You have to know where to look it up.
 Not knowing is the starting condition of every single thing you now know.
@@ -368,8 +341,6 @@ You've learned harder things than this and forgotten how hard they were.
 Teach it to someone and you'll find out exactly what you don't know. Useful, if humbling.
 Copy first, understand second, invent third. That's the order. Always was.
 The confusion you're in is the price of admission. Everyone paid it.
-
-# --- Comparison, and other people's highlight reels ---
 You're comparing your rough draft to somebody's published version. Unfair fight.
 Nobody posts the six months of nothing. It happened, though.
 Their timeline is not a schedule you're behind on.
@@ -383,8 +354,6 @@ Applaud someone genuinely today. Costs nothing, changes the room.
 The people ahead of you started earlier, not better.
 You'd be bored inside anyone else's life within a week. Yours is the interesting one.
 Measuring yourself against strangers is a hobby with no winners.
-
-# --- Mistakes, and getting back up ---
 You made a mistake. That's the whole event. It isn't a personality.
 Fix it, learn it, put it down. Carrying it doesn't improve anyone's outcome.
 The apology can be short. Short ones are usually better.
@@ -400,8 +369,6 @@ Mistakes are tuition. You've paid plenty; go and collect the education.
 You'd forgive a friend for this instantly. Extend the courtesy inward.
 A bad day is data, not a verdict.
 The version of you who made that call had less information. Be decent to them.
-
-# --- Asking for help, and being easy to work with ---
 Asking for help isn't a withdrawal from a limited account. People like being useful.
 You are one conversation away from unstuck. Have the conversation.
 Say "I don't know" out loud. It's a shortcut dressed as a weakness.
@@ -414,8 +381,6 @@ Feedback isn't an attack. It's someone spending effort on your behalf.
 Tell someone what you're working on. Saying it out loud rearranges it.
 Nobody hired the person who knows everything. That person does not exist.
 Delegate the thing you're clinging to. You're not the only competent adult here.
-
-# --- The absurd and the speculative ---
 If this is a simulation, the physics engine is extremely detailed and you're doing fine in it.
 A machine could do part of your job and still couldn't decide which part matters.
 Aliens observing you right now would be impressed by the sheer commitment to the bit.
@@ -434,8 +399,6 @@ The dinosaurs had 165 million years and never once did admin. Something to aspir
 Evolution spent four billion years on this nervous system. Try not to run it on fumes.
 You are a wet three-pound prediction engine with opinions. Extraordinary hardware.
 Bees don't know they're doing agriculture. You don't know what you're accidentally good at either.
-
-# --- Time, and the shape of a day ---
 Deadlines are imaginary but useful, like money and Tuesdays.
 The morning version of you is optimistic. The afternoon version does the work. Both count.
 You cannot get yesterday back and you don't need it. Today has plenty of hours.
@@ -451,8 +414,6 @@ There is no bonus for suffering through it faster.
 A slow week is not a wasted week. Growth is lumpy.
 Your best work happens in a window that isn't nine to five. Find it, defend it.
 Waiting for the perfect moment is a way of choosing no moment.
-
-# --- The long game ---
 You're building something slowly and invisibly. That's how everything real gets built.
 Careers look like ladders in hindsight and fog at the time. You're in the fog. Normal.
 The skill you're grinding at now becomes the thing people ask you about later.
@@ -466,8 +427,6 @@ Choose the thing that makes you more interesting, not just more employable.
 The room you want to be in will feel uncomfortable at first. That's how you know.
 Being underestimated is a temporary and quietly useful position.
 Ten years of small deposits and suddenly people call it talent.
-
-# --- Ideas ---
 Bad ideas are the raw material for good ones. Produce them enthusiastically.
 Your best idea this year will arrive looking stupid. Be nice to it.
 Creativity is mostly volume. Make more things; some will be good.
@@ -480,8 +439,6 @@ The obvious idea nobody executed is still available. Usually is.
 Write it down. Ideas are slippery and your memory is a liar.
 Boredom is where ideas come from. Be bored occasionally, on purpose.
 Make the thing you wish existed. That's the whole strategy.
-
-# --- Tools, desks, and small order ---
 Tidy one square foot of desk. The effect is out of all proportion.
 Your tools are allowed to be sharp. Spend the hour fixing the annoying one.
 Chaos on the desk, chaos in the head. Not always, but often enough to test.
@@ -492,8 +449,6 @@ Close the loop on one nagging admin thing. It's eating more attention than it de
 Delete something today. Anything. It will feel disproportionately good.
 The friction you've stopped noticing is still costing you. Notice it once.
 Good enough systems beat great intentions every time.
-
-# --- Kindness, aimed inward ---
 Talk to yourself the way you'd talk to someone you like.
 You're doing your best with the brain and the day you've got.
 Being hard on yourself has never once made you faster. Check the record.
@@ -506,8 +461,6 @@ You don't owe anyone an explanation for having a slow day.
 Treat yourself like someone you're responsible for, because you are.
 It's okay to not be okay and still get a couple of things done.
 Some encouragement, unsolicited and unearned, just because: you're doing well.
-
-# --- Noticing ---
 Something went right today. Take a second and locate it.
 You solved a problem this week that would have stumped you last year.
 Pet an animal if one is available. Non-negotiable if one is available.
@@ -518,8 +471,6 @@ Notice the thing that stopped being hard. It used to be hard.
 Today contains at least one good moment. Don't let it pass unrecorded.
 Things you take for granted were once things you hoped for. Most of them.
 A quiet, ordinary, uneventful day is an underrated luxury. This might be one.
-
-# --- Send-offs ---
 Whatever happens next, you've handled the equivalent before.
 Go be a person for a while. The work keeps.
 That'll do. Genuinely, that'll do.

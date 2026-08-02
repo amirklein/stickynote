@@ -1,3 +1,7 @@
+import contextlib
+import io
+import shutil
+import json
 import os
 import re
 import sys
@@ -8,12 +12,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-_TMP = tempfile.mkdtemp(prefix="cheerbot-test-")
-os.environ["CHEERBOT_HOME"] = _TMP
+_TMP = tempfile.mkdtemp(prefix="stickynote-test-")
+os.environ["STICKYNOTE_HOME"] = _TMP
 
-from cheerbot import activity, cli, messages, nativeapp, notifier, scheduler  # noqa: E402
-from cheerbot.config import Config, coerce  # noqa: E402
-from cheerbot.state import State  # noqa: E402
+from stickynote import (  # noqa: E402
+    activity, ai, brew, cli, hooks, messages, nativeapp, notifier, packs,
+    paths, scheduler, translate, wizard,
+)
+from stickynote.config import Config, coerce  # noqa: E402
+from stickynote.state import State  # noqa: E402
 
 
 def at(day: str, clock: str) -> datetime:
@@ -126,39 +133,79 @@ class RandomizeTests(unittest.TestCase):
             self.assertTrue(cfg.allows(nxt))
 
 
-class ToneTests(unittest.TestCase):
-    def test_each_tone_loads_a_usable_pool(self):
-        for tone in ("funny", "sincere", "mixed"):
-            pool = messages.load(tone)
-            self.assertGreater(len(pool), 50, tone)
-            self.assertEqual(len(pool), len(set(pool)), f"{tone} has duplicates")
+class PackTests(unittest.TestCase):
+    def bundled(self):
+        return {i: p for i, p in packs.available().items() if p.bundled}
 
-    def test_mixed_is_the_union_of_both(self):
+    def test_every_bundled_pack_is_usable(self):
+        for pack_id, pack in self.bundled().items():
+            lines = pack.messages()
+            self.assertGreater(len(lines), 40, pack_id)
+            self.assertEqual(len(lines), len(set(lines)), f"{pack_id} has duplicates")
+            self.assertTrue(pack.name and pack.language, pack_id)
+
+    def test_the_expected_packs_ship(self):
         self.assertEqual(
-            len(messages.load("mixed")),
-            len(messages.load("funny")) + len(messages.load("sincere")),
+            set(self.bundled()), {"funny", "sincere", "cosmic", "office", "zen"}
+        )
+
+    def test_mixing_packs_does_not_double_count(self):
+        """Themed packs are views of the funny pool, so overlap is expected."""
+        mixed = messages.load(["funny", "cosmic"])
+        self.assertEqual(len(mixed), len(set(mixed)))
+        self.assertEqual(len(mixed), len(messages.load(["funny"])))
+
+    def test_mixing_unrelated_packs_adds_up(self):
+        self.assertEqual(
+            len(messages.load(["funny", "sincere"])),
+            len(messages.load(["funny"])) + len(messages.load(["sincere"])),
         )
 
     def test_funny_and_sincere_do_not_overlap(self):
-        self.assertFalse(set(messages.load("funny")) & set(messages.load("sincere")))
+        self.assertFalse(set(messages.load(["funny"])) & set(messages.load(["sincere"])))
 
-    def test_no_near_duplicates_slip_into_a_pool(self):
+    def test_no_near_duplicates_slip_into_a_pack(self):
         """Exact-match checking misses lines differing only in punctuation."""
-        for tone in ("funny", "sincere"):
+        for pack_id, pack in self.bundled().items():
             seen = {}
-            for line in messages.load(tone):
+            for line in pack.messages():
                 key = re.sub(r"[^a-z0-9 ]", "", line.lower())
                 key = re.sub(r"\s+", " ", key).strip()
-                self.assertNotIn(key, seen, f"{tone}: {line!r} ~ {seen.get(key)!r}")
+                self.assertNotIn(key, seen, f"{pack_id}: {line!r} ~ {seen.get(key)!r}")
                 seen[key] = line
 
     def test_the_funny_pool_is_large_enough_to_stay_fresh(self):
-        pool = messages.load("funny")
-        self.assertGreater(len(pool), 450, "expanded pool shrank unexpectedly")
+        self.assertGreater(len(messages.load(["funny"])), 450, "the pool shrank")
 
-    def test_config_rejects_an_unknown_tone(self):
+    def test_config_rejects_an_unknown_pack(self):
         with self.assertRaises(ValueError):
-            Config(tone="sarcastic").validate()
+            Config(packs=["sarcastic"]).validate()
+
+    def test_config_rejects_an_empty_selection(self):
+        with self.assertRaises(ValueError):
+            Config(packs=[]).validate()
+
+    def test_a_tone_config_still_works(self):
+        """Configs written before packs existed must not need editing."""
+        path = paths.config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"tone": "mixed", "min_minutes": 20}))
+        self.addCleanup(path.unlink)
+
+        cfg = Config.load()
+        self.assertEqual(cfg.packs, ["funny", "sincere"])
+        self.assertEqual(cfg.min_minutes, 20)
+
+    def test_packs_wins_when_a_config_carries_both(self):
+        path = paths.config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"tone": "mixed", "packs": ["zen"]}))
+        self.addCleanup(path.unlink)
+
+        self.assertEqual(Config.load().packs, ["zen"])
+
+    def test_a_pack_list_can_be_set_from_the_command_line(self):
+        self.assertEqual(coerce("packs", "funny, zen"), ["funny", "zen"])
 
 
 class ActivityGateTests(unittest.TestCase):
@@ -307,17 +354,17 @@ class EmojiTests(unittest.TestCase):
 
 class PlacementTests(unittest.TestCase):
     def test_badge_placement_keeps_the_title_clean(self):
-        self.assertEqual(notifier.compose("Cheerbot", "✨", "badge"), ("Cheerbot", "✨"))
+        self.assertEqual(notifier.compose("Sticky Note", "✨", "badge"), ("Sticky Note", "✨"))
 
     def test_title_placement_prefixes_the_text(self):
-        self.assertEqual(notifier.compose("Cheerbot", "✨", "title"), ("✨ Cheerbot", ""))
+        self.assertEqual(notifier.compose("Sticky Note", "✨", "title"), ("✨ Sticky Note", ""))
 
     def test_both_places_it_twice(self):
-        self.assertEqual(notifier.compose("Cheerbot", "✨", "both"), ("✨ Cheerbot", "✨"))
+        self.assertEqual(notifier.compose("Sticky Note", "✨", "both"), ("✨ Sticky Note", "✨"))
 
     def test_off_and_empty_emoji_yield_nothing(self):
-        self.assertEqual(notifier.compose("Cheerbot", "✨", "off"), ("Cheerbot", ""))
-        self.assertEqual(notifier.compose("Cheerbot", "", "badge"), ("Cheerbot", ""))
+        self.assertEqual(notifier.compose("Sticky Note", "✨", "off"), ("Sticky Note", ""))
+        self.assertEqual(notifier.compose("Sticky Note", "", "badge"), ("Sticky Note", ""))
 
     def test_auto_follows_what_the_transport_supports(self):
         original = notifier.supports_badges
@@ -379,21 +426,21 @@ class TransportTests(unittest.TestCase):
         """A badge must never leak into the body text of a text-only transport."""
         self.use(native=False, applet=True)
         placement = notifier.resolve_placement("auto")
-        title, badge = notifier.compose("Cheerbot", "✨", placement)
+        title, badge = notifier.compose("Sticky Note", "✨", placement)
         self.assertEqual(badge, "")
-        self.assertEqual(title, "✨ Cheerbot")
+        self.assertEqual(title, "✨ Sticky Note")
 
 
 class AppIconTests(unittest.TestCase):
     def test_generation_one_keeps_the_original_identifier(self):
         """Existing installs must not be pushed onto a new bundle id."""
-        self.assertEqual(nativeapp.bundle_id(1), "dev.cheerbot.notifier")
-        self.assertEqual(nativeapp.bundle_id(0), "dev.cheerbot.notifier")
+        self.assertEqual(nativeapp.bundle_id(1), "dev.stickynote.notifier")
+        self.assertEqual(nativeapp.bundle_id(0), "dev.stickynote.notifier")
 
     def test_later_generations_are_distinct(self):
         ids = {nativeapp.bundle_id(gen) for gen in range(1, 6)}
         self.assertEqual(len(ids), 5)
-        self.assertEqual(nativeapp.bundle_id(2), "dev.cheerbot.notifier2")
+        self.assertEqual(nativeapp.bundle_id(2), "dev.stickynote.notifier2")
 
     def test_path_shaped_values_are_recognised(self):
         """A path that does not exist should be rejected, not taken as an emoji."""
@@ -441,6 +488,356 @@ class ConfigTests(unittest.TestCase):
         cfg = Config(title="Pep", min_minutes=5, active_days=[0, 4])
         cfg.save()
         self.assertEqual(Config.load().as_dict(), cfg.as_dict())
+
+
+class HookTests(unittest.TestCase):
+    """Someone else's hooks are not ours to overwrite."""
+
+    def setUp(self):
+        self.home = tempfile.mkdtemp(prefix="stickynote-home-")
+        self.original_home = os.environ.get("HOME")
+        os.environ["HOME"] = self.home
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        if self.original_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = self.original_home
+        shutil.rmtree(self.home, ignore_errors=True)
+
+    def config_for(self, tool_id):
+        return hooks.tools()[tool_id].config
+
+    def write(self, tool_id, data):
+        path = self.config_for(tool_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data))
+        return path
+
+    def read(self, tool_id):
+        return json.loads(self.config_for(tool_id).read_text())
+
+    def test_install_creates_a_config_that_did_not_exist(self):
+        for tool_id in hooks.tools():
+            with self.subTest(tool_id):
+                changed, _ = hooks.install(tool_id)
+                self.assertTrue(changed)
+                self.assertTrue(hooks.installed(tool_id))
+
+    def test_installing_twice_changes_nothing(self):
+        hooks.install("cursor")
+        first = self.config_for("cursor").read_text()
+        changed, _ = hooks.install("cursor")
+        self.assertFalse(changed)
+        self.assertEqual(self.config_for("cursor").read_text(), first)
+
+    def test_existing_hooks_are_left_alone(self):
+        self.write("cursor", {
+            "hooks": {
+                "afterFileEdit": [{"command": "/other/tool --hook"}],
+                "stop": [{"command": "/other/tool --stop"}],
+            }
+        })
+        hooks.install("cursor")
+        data = self.read("cursor")
+        self.assertEqual(data["hooks"]["afterFileEdit"], [{"command": "/other/tool --hook"}])
+        self.assertEqual(data["hooks"]["stop"][0], {"command": "/other/tool --stop"})
+        self.assertEqual(len(data["hooks"]["stop"]), 2)
+
+    def test_uninstall_removes_only_our_entry(self):
+        self.write("cursor", {"hooks": {"stop": [{"command": "/other/tool --stop"}]}})
+        hooks.install("cursor")
+        hooks.uninstall("cursor")
+        self.assertEqual(self.read("cursor")["hooks"]["stop"],
+                         [{"command": "/other/tool --stop"}])
+
+    def test_uninstall_leaves_no_empty_handler_group_behind(self):
+        hooks.install("claude")
+        hooks.uninstall("claude")
+        data = self.read("claude")
+        self.assertFalse(hooks.installed("claude"))
+        for groups in data.get("hooks", {}).values():
+            for group in groups:
+                self.assertTrue(group.get("hooks"), "an empty group was left behind")
+
+    def test_unrelated_settings_survive_a_round_trip(self):
+        self.write("claude", {"theme": "dark", "hooks": {}})
+        hooks.install("claude")
+        hooks.uninstall("claude")
+        self.assertEqual(self.read("claude")["theme"], "dark")
+
+    def test_the_old_file_is_backed_up_before_being_changed(self):
+        path = self.write("cursor", {"hooks": {"stop": [{"command": "/other"}]}})
+        _, backup = hooks.install("cursor")
+        self.assertIsNotNone(backup)
+        self.assertIn("/other", backup.read_text())
+        self.assertNotEqual(backup, path)
+
+    def test_claude_covers_finishing_and_waiting(self):
+        hooks.install("claude")
+        data = self.read("claude")
+        self.assertIn("Stop", data["hooks"])
+        self.assertIn("Notification", data["hooks"])
+
+    def test_the_command_survives_a_bare_environment(self):
+        """Hooks inherit almost nothing, so PATH and PYTHONPATH cannot be assumed."""
+        hooks.install("cursor")
+        command = self.read("cursor")["hooks"]["stop"][0]["command"]
+        self.assertIn("PYTHONPATH=", command)
+        self.assertTrue(command.split("PYTHONPATH=")[0] == "")
+        self.assertIn(str(paths.PACKAGE_ROOT.parent), command)
+
+    def test_a_corrupt_config_does_not_stop_an_install(self):
+        path = self.config_for("cursor")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{ this is not json")
+        changed, backup = hooks.install("cursor")
+        self.assertTrue(changed)
+        self.assertTrue(hooks.installed("cursor"))
+        self.assertIn("not json", backup.read_text())
+
+    def test_every_event_kind_has_lines_and_a_badge(self):
+        for kind in ("done", "waiting", "error"):
+            lines, badge = hooks.event_lines(kind)
+            self.assertTrue(lines, kind)
+            self.assertTrue(badge, kind)
+            for line in lines:
+                self.assertIn("{source}", line, f"{kind}: {line!r} names no source")
+
+    def test_an_unknown_event_kind_yields_nothing(self):
+        self.assertEqual(hooks.event_lines("celebrate"), ([], ""))
+
+
+class AITests(unittest.TestCase):
+    """Every AI path has to degrade to the bundled packs, never to silence."""
+
+    def setUp(self):
+        self.original = ai.complete
+        self.addCleanup(self.restore)
+        for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "STICKYNOTE_AI_KEY"):
+            os.environ.pop(name, None)
+        shutil.rmtree(paths.user_packs_dir(), ignore_errors=True)
+
+    def restore(self):
+        ai.complete = self.original
+        if paths.ai_path().exists():
+            paths.ai_path().unlink()
+        shutil.rmtree(paths.user_packs_dir(), ignore_errors=True)
+
+    def replies(self, text):
+        ai.complete = lambda *a, **k: text
+
+    def raises(self, message="the network is on fire"):
+        def boom(*_a, **_k):
+            raise ai.AIError(message)
+        ai.complete = boom
+
+    def test_a_stored_key_is_not_world_readable(self):
+        ai.save_credentials("openai", "sk-secret")
+        mode = paths.ai_path().stat().st_mode & 0o777
+        self.assertEqual(mode, 0o600, f"ai.json is {oct(mode)}")
+
+    def test_a_stored_key_round_trips(self):
+        ai.save_credentials("anthropic", "sk-ant", "claude-3-5-haiku-latest")
+        creds = ai.load_credentials()
+        self.assertEqual(creds.provider, "anthropic")
+        self.assertEqual(creds.api_key, "sk-ant")
+        self.assertEqual(creds.resolved_model, "claude-3-5-haiku-latest")
+
+    def test_an_environment_key_is_enough(self):
+        os.environ["OPENAI_API_KEY"] = "sk-env"
+        try:
+            self.assertEqual(ai.load_credentials().api_key, "sk-env")
+        finally:
+            del os.environ["OPENAI_API_KEY"]
+
+    def test_no_key_anywhere_reads_as_unconfigured(self):
+        self.assertIsNone(ai.load_credentials())
+        self.assertFalse(ai.configured())
+
+    def test_an_unknown_provider_is_refused(self):
+        with self.assertRaises(ai.AIError):
+            ai.save_credentials("hal9000", "key")
+
+    def test_model_formatting_is_parsed_defensively(self):
+        """Models number things and add preambles however firmly you ask."""
+        text = (
+            "Sure! Here are some:\n"
+            "1. You are doing fine.\n"
+            "2) Drink some water, seriously.\n"
+            '- "Small steps still count."\n'
+            "* Nothing is on fire right now.\n"
+            "\n"
+            "Hope these help!"
+        )
+        lines = ai.lines_from(text)
+        self.assertIn("You are doing fine.", lines)
+        self.assertIn("Drink some water, seriously.", lines)
+        self.assertIn("Small steps still count.", lines)
+        self.assertIn("Nothing is on fire right now.", lines)
+
+    def test_generation_drops_lines_that_already_exist(self):
+        existing = messages.load(["funny"])[0]
+        self.replies(f"{existing}\nA line nobody has written before, honestly.")
+        fresh = brew.generate(5)
+        self.assertNotIn(existing, fresh)
+        self.assertIn("A line nobody has written before, honestly.", fresh)
+
+    def test_generation_stops_instead_of_looping_on_a_stale_model(self):
+        """A model with nothing new to say must not be paid to repeat itself."""
+        self.replies(messages.load(["funny"])[0])
+        calls = []
+        original = ai.complete
+        ai.complete = lambda *a, **k: (calls.append(1), original(*a, **k))[1]
+        self.assertEqual(brew.generate(50), [])
+        self.assertLessEqual(len(calls), 2)
+
+    def test_generated_lines_land_in_the_user_pack_only(self):
+        self.replies("A freshly brewed and entirely original note.")
+        brew.save(brew.generate(1))
+        folder = paths.user_packs_dir() / brew.GENERATED_PACK
+        self.assertTrue((folder / "messages.txt").exists())
+        self.assertIn(brew.GENERATED_PACK, packs.available())
+        self.assertFalse((paths.BUNDLED_PACKS / brew.GENERATED_PACK).exists())
+
+    def test_saving_twice_does_not_duplicate(self):
+        brew.save(["A note that will be saved two times over."])
+        total = brew.save(["A note that will be saved two times over."])
+        self.assertEqual(total, 1)
+
+    def test_live_mode_falls_back_when_the_api_fails(self):
+        self.raises()
+        cfg = Config(ai_live=True)
+        self.assertEqual(brew.live_line(cfg, "the bundled one"), "the bundled one")
+
+    def test_live_mode_falls_back_on_an_empty_reply(self):
+        self.replies("   \n\n")
+        cfg = Config(ai_live=True)
+        self.assertEqual(brew.live_line(cfg, "the bundled one"), "the bundled one")
+
+    def test_live_mode_is_skipped_entirely_when_off(self):
+        self.raises("this must never be called")
+        self.assertEqual(brew.live_line(Config(), "the bundled one"), "the bundled one")
+
+    def test_a_broken_api_still_delivers_a_notification(self):
+        """The whole point: no API means the bundled pack, not silence."""
+        self.raises()
+        now = at("2026-07-27", "10:00")
+        cfg = Config(ai_live=True, require_activity=False)
+        state = State(next_fire=(now - timedelta(minutes=1)).timestamp())
+        sent = []
+        result = scheduler.tick(cfg, state, now, sent.append)
+        self.assertEqual(result.action, "fired")
+        self.assertEqual(len(sent), 1)
+        self.assertIn(sent[0], messages.load(cfg.packs))
+
+    def test_refill_only_triggers_when_asked_and_running_low(self):
+        pool = [f"line {i}" for i in range(50)]
+        self.assertFalse(brew.needs_refill(Config(), [], pool))
+
+        eager = Config(ai_auto_refill=True, ai_refill_threshold=40)
+        self.assertFalse(brew.needs_refill(eager, [], pool))
+        self.assertTrue(brew.needs_refill(eager, pool[:20], pool))
+
+    def test_translation_refuses_a_short_batch_rather_than_shrinking_a_pack(self):
+        self.replies("une ligne")
+        with self.assertRaises(ai.AIError):
+            translate.translate_lines(["one", "two", "three"], "fr")
+
+    def test_translation_writes_an_editable_user_pack(self):
+        source = packs.get("sincere").messages()
+        self.replies("\n".join(f"ligne numero {i}" for i in range(translate.BATCH)))
+
+        # One batch's worth keeps the stubbed reply honest about line counts.
+        translate.translate_lines(source[:translate.BATCH], "fr")
+        packs.write_pack("sincere-fr", "Sincere (French)", "test", "fr", ["ligne un"])
+        self.assertEqual(packs.get("sincere-fr").language, "fr")
+        self.assertFalse(packs.get("sincere-fr").bundled)
+
+
+class WizardTests(unittest.TestCase):
+    """The wizard's whole job is to change settings without touching the package."""
+
+    def setUp(self):
+        self.answers = []
+        self.original_input = wizard.read_line
+        wizard.read_line = self.next_answer
+        # The questionnaire is chatty; keep it out of the test report.
+        quiet = contextlib.redirect_stdout(io.StringIO())
+        quiet.__enter__()
+        self.addCleanup(quiet.__exit__, None, None, None)
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        wizard.read_line = self.original_input
+
+    def next_answer(self, _prompt=""):
+        if not self.answers:
+            raise EOFError("the wizard asked more questions than were answered")
+        return self.answers.pop(0)
+
+    def answer(self, *values):
+        self.answers = [str(v) for v in values]
+
+    # Order: rhythm, start, end, weekends, activity, theme, badge, icon, seconds.
+    def full_run(self, *values):
+        self.answer(*values)
+        return wizard.run(Config())
+
+    def test_a_full_pass_produces_a_valid_config(self):
+        cfg = self.full_run(2, "08:00", "18:00", "n", "y", 1, 1, "📝", 20)
+        cfg.validate()
+        self.assertEqual(cfg.active_days, [0, 1, 2, 3, 4])
+        self.assertEqual(cfg.active_start, "08:00")
+        self.assertEqual(cfg.linger_seconds, 20)
+        self.assertEqual(cfg.emoji, "random")
+
+    def test_defaults_survive_an_impatient_user(self):
+        """Pressing return through every question must still be valid."""
+        cfg = self.full_run(*[""] * 9)
+        cfg.validate()
+
+    def test_the_rhythm_choice_sets_the_interval(self):
+        cfg = self.full_run(1, "", "", "", "", "", "", "", "")
+        self.assertEqual((cfg.min_minutes, cfg.max_minutes), (45.0, 180.0))
+
+    def test_the_no_repeat_window_follows_the_frequency(self):
+        """A window fixed while the rhythm changes would let echoes through."""
+        gentle = self.full_run(1, "", "", "", "", "", "", "", "")
+        constant = self.full_run(4, "", "", "", "", "", "", "", "")
+        self.assertGreater(constant.no_repeat_window, gentle.no_repeat_window)
+
+    def test_a_mix_of_packs_can_be_chosen(self):
+        catalogue = list(packs.available())
+        cfg = self.full_run("", "", "", "", "", len(catalogue) + 1, "funny, zen",
+                            "", "", "")
+        self.assertEqual(cfg.packs, ["funny", "zen"])
+
+    def test_a_bad_pack_name_is_asked_again_rather_than_saved(self):
+        catalogue = list(packs.available())
+        cfg = self.full_run("", "", "", "", "", len(catalogue) + 1,
+                            "nonsense", "zen", "", "", "")
+        self.assertEqual(cfg.packs, ["zen"])
+
+    def test_nothing_is_written_inside_the_package(self):
+        """A package that changes per user cannot be upgraded or reasoned about."""
+        package = paths.PACKAGE_ROOT
+        before = {p: p.stat().st_mtime_ns for p in package.rglob("*") if p.is_file()}
+
+        cfg = self.full_run(3, "09:00", "21:00", "y", "y", 1, 1, "📝", 15)
+        cfg.save()
+
+        after = {p: p.stat().st_mtime_ns for p in package.rglob("*") if p.is_file()}
+        self.assertEqual(set(before), set(after), "the wizard added or removed a file")
+        changed = [str(p) for p in before if before[p] != after[p]]
+        self.assertEqual(changed, [], "the wizard modified bundled files")
+
+    def test_everything_it_writes_lands_under_the_config_home(self):
+        cfg = self.full_run(*[""] * 9)
+        cfg.save()
+        self.assertTrue(paths.config_path().exists())
+        self.assertTrue(str(paths.config_path()).startswith(os.environ["STICKYNOTE_HOME"]))
 
 
 if __name__ == "__main__":
