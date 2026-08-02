@@ -363,6 +363,11 @@ final class SettingsWindowController {
         created.isReleasedWhenClosed = false
         created.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        // The first text field otherwise becomes first responder on open, and
+        // the scroll view jumps down to reveal it, hiding the title and the
+        // rhythm controls above it. Deferred, because SwiftUI installs the
+        // responder chain after this returns.
+        DispatchQueue.main.async { created.makeFirstResponder(nil) }
         window = created
     }
 }
