@@ -22,6 +22,10 @@
 
 <style>
 :root {
+  /* Deliberately light for everyone rather than following the visitor's
+     system appearance: the warm paper is the whole look, and the dark
+     variant of it was nobody's idea of a sticky note. */
+  color-scheme: light;
   --paper: #fdfcf7;
   --ink: #1d1c19;
   --muted: #6d6a63;
@@ -33,17 +37,6 @@
   --radius: 16px;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #14140f;
-    --ink: #f3f1ea;
-    --muted: #9d998e;
-    --line: #2c2b25;
-    --card: #1c1b16;
-    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 40px rgba(0,0,0,.35);
-  }
 }
 
 * { box-sizing: border-box; }
@@ -428,10 +421,7 @@ footer a:hover { border-bottom-color: var(--ink); }
     </p>
 
     <div class="stage">
-      <picture>
-        <source srcset="note-dark.png" media="(prefers-color-scheme: dark)">
-        <img src="note-light.png" alt="A macOS notification reading: The universe is chaos and you made a spreadsheet. Genuinely heroic." width="682" height="140" class="shot note-shot">
-      </picture>
+      <img src="note-light.png" alt="A macOS notification reading: The universe is chaos and you made a spreadsheet. Genuinely heroic." width="682" height="140" class="shot note-shot">
     </div>
     <p class="stage-caption">An actual note, caught in the corner of an actual screen.</p>
   </div>
@@ -491,10 +481,7 @@ footer a:hover { border-bottom-color: var(--ink); }
           without a single security warning.
         </p>
       </div>
-      <picture>
-        <source srcset="settings-dark.png" media="(prefers-color-scheme: dark)">
-        <img src="settings-light.png" alt="The Sticky Note settings window, showing rhythm sliders, active hours and theme pack checkboxes." width="914" height="1338" class="shot window-shot">
-      </picture>
+      <img src="settings-light.png" alt="The Sticky Note settings window, showing rhythm sliders, active hours and theme pack checkboxes." width="914" height="1338" class="shot window-shot">
     </div>
   </div>
 </section>
