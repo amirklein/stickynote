@@ -102,7 +102,9 @@ draw("when you need them.", at: NSPoint(x: 96, y: 254),
      size: 34, weight: .regular, color: muted, tracking: -0.4)
 
 // The real notification, screenshotted, rather than an imitation of one: this
-// card is the first thing anyone sees of the product.
+// card is the first thing anyone sees of the product. The dark capture, even
+// though the site itself is light -- the light one is grey on cream, and at
+// the size a feed renders this it disappears.
 let bannerPath = "docs/note-dark.png"
 let bannerRect = NSRect(x: 92, y: 84, width: 620, height: 132)
 
