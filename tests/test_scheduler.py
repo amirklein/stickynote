@@ -154,7 +154,7 @@ class ToneTests(unittest.TestCase):
 
     def test_the_funny_pool_is_large_enough_to_stay_fresh(self):
         pool = messages.load("funny")
-        self.assertGreater(len(pool), 250, "expanded pool shrank unexpectedly")
+        self.assertGreater(len(pool), 450, "expanded pool shrank unexpectedly")
 
     def test_config_rejects_an_unknown_tone(self):
         with self.assertRaises(ValueError):
