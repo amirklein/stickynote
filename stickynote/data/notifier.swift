@@ -190,7 +190,13 @@ case "notify":
     app.setActivationPolicy(.accessory)
     app.run()
 
+case "settings":
+    runSettings(Array(arguments.dropFirst()), asMenuBar: false)
+
+case "menubar":
+    runSettings(Array(arguments.dropFirst()), asMenuBar: true)
+
 default:
-    log("usage: stickynote-notifier [render|notify] ...")
+    log("usage: stickynote-notifier [render|notify|settings|menubar] ...")
     exit(64)
 }

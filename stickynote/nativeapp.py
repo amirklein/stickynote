@@ -21,7 +21,9 @@ from __future__ import annotations
 import plistlib
 import shutil
 import subprocess
+import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -78,10 +80,20 @@ def is_installed() -> bool:
 def _compile(destination: Path) -> None:
     if not available():
         raise BuildError("swiftc not found; install the Xcode Command Line Tools")
-    if not SOURCE.exists():
-        raise BuildError(f"missing notifier source at {SOURCE}")
+    for source in (SOURCE, paths.SETTINGS_SOURCE):
+        if not source.exists():
+            raise BuildError(f"missing Swift source at {source}")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    _run([swiftc(), "-O", str(SOURCE), "-o", str(destination)])
+
+    # Two files, one binary. Swift only allows top-level statements in a file
+    # called main.swift, so the entry point is copied under that name rather
+    # than being stored under it, where the name would say nothing useful.
+    with tempfile.TemporaryDirectory() as work_dir:
+        work = Path(work_dir)
+        shutil.copyfile(SOURCE, work / "main.swift")
+        shutil.copyfile(paths.SETTINGS_SOURCE, work / "settings.swift")
+        _run([swiftc(), "-O", str(work / "main.swift"),
+              str(work / "settings.swift"), "-o", str(destination)])
 
 
 def _dimensions(image: Path) -> Tuple[int, int]:
@@ -196,6 +208,11 @@ def build(icon: str = "📝", generation: int = 1) -> Path:
         "-f",
         str(app),
     ], check=False)
+
+    # Registration is asynchronous. An authorization request that beats it is
+    # refused, and macOS holds that refusal against the bundle identifier
+    # permanently, so the cheap wait here is worth far more than it costs.
+    time.sleep(1.5)
     return app
 
 
@@ -249,6 +266,23 @@ def send(title: str, body: str, emoji: str = "", sound: str = "", linger: float 
     result = subprocess.run(args, capture_output=True, text=True)
     if result.returncode != 0:
         raise BuildError(result.stderr.strip() or "could not launch the notifier app")
+
+
+def open_window(mode: str = "settings") -> None:
+    """Launch the settings window or the menu bar item.
+
+    Through `open` rather than the binary directly, so the process belongs to
+    the bundle: run straight from a terminal it inherits the terminal's
+    identity, and a window from an unbundled process behaves oddly.
+    """
+    if not is_installed():
+        raise BuildError("the app has not been built yet; run `stickynote start`")
+
+    args = ["/usr/bin/open", "-n", "-a", str(paths.app_path()), "--args", mode,
+            "--python", sys.executable, "--pypath", str(paths.PACKAGE_ROOT.parent)]
+    result = subprocess.run(args, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise BuildError(result.stderr.strip() or "could not open the window")
 
 
 def recent_failure(since_size: int) -> Optional[str]:

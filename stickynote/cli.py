@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import json
 import os
 import random
 import re
@@ -317,6 +318,63 @@ def _build_notifier(cfg: Config, force_applet: bool = False) -> str:
     return "applet"
 
 
+_WELCOME = "Sticky Note is on. I'll check in now and then."
+
+
+def _send_greeting(cfg: Config) -> Optional[str]:
+    """Send the first notification. Returns the notifier's complaint, if any."""
+    badge = messages.pick_emoji(cfg.emoji, selection=cfg.packs) \
+        if notifier.supports_badges() else ""
+    title, badge = _compose(cfg, badge)
+    before = nativeapp.log_size()
+    try:
+        transport = notifier.send(title, _WELCOME, cfg.sound, badge, cfg.linger_seconds)
+    except notifier.NotifyError as exc:
+        return str(exc)
+    if transport != "native":
+        return None
+    time.sleep(2.0)
+    return nativeapp.recent_failure(before)
+
+
+def _first_notification(cfg: Config) -> None:
+    """Ask for notification permission, working around a one-shot macOS trap.
+
+    An authorization request that arrives before LaunchServices has finished
+    registering a freshly built bundle is refused outright, and macOS
+    remembers that refusal against the bundle identifier forever. There is no
+    way to clear it, so the only recovery is to present a new identifier,
+    which is what bundle_generation already exists to do.
+    """
+    print("sending a test notification so macOS asks for permission ...")
+    failure = _send_greeting(cfg)
+    if failure is None:
+        print("approve the permission prompt, or you'll get nothing but silence")
+        return
+
+    if "not allowed" not in failure and "denied" not in failure:
+        print(f"(test notification failed: {failure})", file=sys.stderr)
+        return
+
+    print("macOS refused this bundle before it finished registering it, which")
+    print("it will not reconsider. Rebuilding under a new identifier ...")
+    cfg.bundle_generation += 1
+    cfg.save()
+    try:
+        nativeapp.build(cfg.app_icon, cfg.bundle_generation)
+    except nativeapp.BuildError as exc:
+        print(f"rebuild failed: {exc}", file=sys.stderr)
+        return
+    time.sleep(3.0)
+
+    failure = _send_greeting(cfg)
+    if failure:
+        print(f"still refused: {failure}", file=sys.stderr)
+        print("open System Settings > Notifications and enable Sticky Note by hand")
+        return
+    print("approve the permission prompt, or you'll get nothing but silence")
+
+
 def cmd_migrate(_args) -> int:
     if not paths.legacy_home().is_dir():
         print("nothing to migrate: no old cheerbot install found")
@@ -357,17 +415,7 @@ def cmd_start(args) -> int:
         _reschedule(cfg, "first nudge")
 
     if not args.no_app:
-        print("sending a test notification so macOS asks for permission ...")
-        badge = messages.pick_emoji(cfg.emoji) if notifier.supports_badges() else ""
-        title, badge = _compose(cfg, badge)
-        try:
-            notifier.send(
-                title, "Sticky Note is on. I'll check in now and then.",
-                cfg.sound, badge, cfg.linger_seconds,
-            )
-        except notifier.NotifyError as exc:
-            print(f"(test notification failed: {exc})", file=sys.stderr)
-        print("approve the permission prompt, or you'll get nothing but silence")
+        _first_notification(cfg)
     return 0
 
 
@@ -432,6 +480,82 @@ def _set_app_icon(cfg: Config, value: str) -> int:
     print(f"bundle identifier will become {nativeapp.bundle_id(cfg.bundle_generation)}")
     print("run `stickynote start` to rebuild; macOS will ask for notification")
     print("permission again, and the old entry in System Settings can be deleted")
+    return 0
+
+
+def cmd_settings(args) -> int:
+    mode = "menubar" if args.menu_bar else "settings"
+
+    if not nativeapp.available():
+        print("The settings window needs swiftc, which comes with the Xcode")
+        print("Command Line Tools:")
+        print()
+        print("    xcode-select --install")
+        print()
+        print("Until then, `stickynote setup` covers the same ground in the terminal.")
+        return 1
+
+    if not nativeapp.is_installed():
+        print("building the app first ...")
+        cfg = _load_config()
+        try:
+            nativeapp.build(cfg.app_icon, cfg.bundle_generation)
+        except nativeapp.BuildError as exc:
+            print(f"could not build: {exc}", file=sys.stderr)
+            return 1
+
+    try:
+        nativeapp.open_window(mode)
+    except nativeapp.BuildError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+
+    if mode == "menubar":
+        print("menu bar item running; quit it from its own menu")
+        if args.at_login:
+            plist = launchagent.write_menubar_plist()
+            launchagent.load_menubar()
+            print(f"and it will come back at login ({plist})")
+    return 0
+
+
+def cmd_dump(_args) -> int:
+    """Everything the settings window needs, as JSON.
+
+    The window reads this rather than scraping command output, and applies
+    every change by calling back into the CLI, so validation and side effects
+    live in one place instead of being reimplemented in Swift.
+    """
+    cfg = Config.load()
+    state = State.load()
+
+    payload = {
+        "config": cfg.as_dict(),
+        "packs": [
+            {
+                "id": pack.id,
+                "name": pack.name,
+                "description": pack.description,
+                "language": pack.language,
+                "bundled": pack.bundled,
+                "count": len(pack.messages()),
+            }
+            for pack in packs.available().values()
+        ],
+        "status": {
+            "running": launchagent.is_loaded(),
+            "paused_until": state.paused_until,
+            "next_fire": state.next_fire,
+            "delivered": state.fired_count,
+            "transport": notifier.transport(),
+            "badges": notifier.supports_badges(),
+            "messages": len(messages.load(cfg.packs)),
+            "activity": activity.describe(cfg.max_idle_minutes),
+            "ai": ai.configured(),
+            "hooks": {t: hooks.installed(t) for t in hooks.tools()},
+        },
+    }
+    print(json.dumps(payload, indent=2))
     return 0
 
 
@@ -835,6 +959,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     subs.add_parser("migrate", help="carry over an install of the old cheerbot")
 
+    settings_cmd = subs.add_parser("settings", help="open the settings window")
+    settings_cmd.add_argument(
+        "--menu-bar", action="store_true",
+        help="run as a menu bar item instead of opening the window",
+    )
+    settings_cmd.add_argument(
+        "--at-login", action="store_true",
+        help="with --menu-bar, bring it back automatically at login",
+    )
+
+    subs.add_parser("dump", help="print settings as JSON (used by the settings window)")
+
     hooks_cmd = subs.add_parser("hooks", help="notify me when a coding agent finishes")
     hooks_cmd.add_argument(
         "action", nargs="?", default="status",
@@ -922,6 +1058,8 @@ _HANDLERS = {
     "translate": cmd_translate,
     "event": cmd_event,
     "hooks": cmd_hooks,
+    "dump": cmd_dump,
+    "settings": cmd_settings,
     "demo": cmd_demo,
     "alerts": cmd_alerts,
     "now": cmd_now,

@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 
 LABEL = "dev.stickynote.agent"
+MENUBAR_LABEL = "dev.stickynote.menubar"
 # The bundle filename, kept free of spaces so it is pleasant on a command line.
 APP_NAME = "StickyNote"
 # What macOS shows in the notification header and the app list.
@@ -95,6 +96,10 @@ def legacy_app_path() -> Path:
 
 def plist_path() -> Path:
     return Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
+
+
+def menubar_plist_path() -> Path:
+    return Path.home() / "Library" / "LaunchAgents" / f"{MENUBAR_LABEL}.plist"
 
 
 def legacy_plist_path() -> Path:

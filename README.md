@@ -1,51 +1,189 @@
 # Sticky Note
 
-Random encouraging notifications on macOS. A background LaunchAgent picks a
-random moment inside your active hours, picks a message you haven't seen
-recently, and puts it in Notification Center. That's the whole product.
+Cute, funny sticky notes that turn up on your Mac when you need them. A
+background LaunchAgent picks a random moment inside your active hours, picks a
+note you haven't seen recently, and puts it in Notification Center.
 
-No dependencies beyond the system Python, no menu bar icon, no account.
+No dependencies beyond the system Python, no account, nothing to sign up for.
+Everything personal lives in `~/.config/stickynote`; the installed package is
+read-only and stays that way.
 
 ## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/amirklein/stickynote/main/install.sh | bash
+```
+
+or, from a clone:
 
 ```bash
 ./install.sh
 ```
 
-That does three things:
-
-1. Builds `~/Applications/StickyNote.app`, a small Swift helper that posts
-   notifications through the `UserNotifications` framework, with the app icon
-   baked in beforehand (see [Badges](#badges) for why the order matters). If
-   `swiftc` is unavailable it falls back to an AppleScript applet, which works
-   but cannot show badges.
-2. Installs the LaunchAgent at `~/Library/LaunchAgents/dev.stickynote.agent.plist`,
-   which starts at login and polls every 5 minutes.
-3. Sends one notification so macOS shows the permission prompt.
-
-**Approve the permission prompt the first time**, otherwise everything will run
-silently and deliver nothing. If you miss it, enable Sticky Note under System
-Settings → Notifications.
-
-To call it from anywhere:
+Either way the setup wizard runs afterwards and asks how often you want notes,
+which theme, and what the icon should be. You can run it again whenever:
 
 ```bash
-ln -s "$PWD/bin/stickynote" /usr/local/bin/stickynote
+stickynote setup
 ```
+
+**Approve the notification permission prompt the first time.** Without it
+everything runs and delivers nothing. If you miss it, enable Sticky Note under
+System Settings → Notifications.
+
+### Why there is no download button
+
+Since macOS Sequoia, Apple removed Control-click-to-open, so a downloaded
+unsigned `.app` sends you to System Settings for an admin password on first
+launch. Notarizing that away costs $99/year.
+
+This dodges the problem rather than paying for it: the app is compiled on your
+own machine by `swiftc` and ad-hoc signed there, so it is never downloaded and
+never quarantined. The cost is that installing is a terminal command. The
+benefit is that everything after that, including a real settings window, is
+free.
+
+Without the Xcode Command Line Tools there is no `swiftc`, and Sticky Note
+falls back to an AppleScript applet: notifications still work, just without
+badge images or the settings window. `xcode-select --install` gets them.
 
 ## Usage
 
 ```bash
-stickynote status              # schedule, next nudge, health
-stickynote now                 # encourage me right now
-stickynote demo                # watch a burst of them up close, without touching the schedule
-stickynote alerts              # make notifications last longer than a five-second banner
+stickynote setup               # the questionnaire, any time
+stickynote settings            # the same thing as a window
+stickynote settings --menu-bar # a menu bar item for pause and nudge-now
+stickynote status              # schedule, next note, health
+stickynote now                 # a note right now
+stickynote packs               # which themes exist, and which are in use
+stickynote demo                # watch a burst up close, without touching the schedule
+stickynote alerts              # make notes last longer than a five-second banner
+stickynote hooks install       # notes when Cursor, Claude Code or Codex finishes
 stickynote surprise            # re-roll the timing at random, and stop showing me when
 stickynote pause 3h            # quiet for a while (also: 90m, 2d, today)
 stickynote resume
 stickynote stop                # unload the agent
 stickynote start               # load it again
 ```
+
+## Theme packs
+
+A pack is a named set of notes. Five ship, and they can be mixed:
+
+| Pack | Notes | What it sounds like |
+| --- | --- | --- |
+| `funny` | 480 | Cosmic shrugs, office earnestness, gentle nagging about water |
+| `sincere` | 102 | Straightforward encouragement, no jokes |
+| `cosmic` | 67 | Entropy, the multiverse, the cheerful kind of nihilism |
+| `office` | 100 | Workplace enthusiasm, deadpan asides, beet-farm discipline |
+| `zen` | 102 | Calm and unhurried, mostly about your body and your attention |
+
+```bash
+stickynote packs               # list them, marking the ones in use
+stickynote packs funny,zen     # draw from both
+```
+
+`cosmic` and `office` are curated views of `funny`, so mixing them with it adds
+nothing and is deduplicated rather than double-weighted.
+
+Your own packs live in `~/.config/stickynote/packs/`. A pack there shadows a
+bundled one of the same name, so you can rewrite `zen` entirely without
+touching the installed package or losing your changes on upgrade.
+
+## Coding agent notifications
+
+```bash
+stickynote hooks install          # all three tools
+stickynote hooks install cursor   # or just one
+stickynote hooks status
+stickynote hooks uninstall
+```
+
+A note arrives when an agent finishes, and for Claude Code when it is waiting
+on a permission or idle prompt. Installing merges into whatever hooks you
+already have and copies the old file aside first.
+
+| Tool | File | Event |
+| --- | --- | --- |
+| Cursor | `~/.cursor/hooks.json` | `stop` |
+| Claude Code | `~/.claude/settings.json` | `Stop`, `Notification` |
+| Codex | `~/.codex/hooks.json` | `Stop` |
+
+Codex asks you to trust a new hook: run `/hooks` in Codex afterwards. If hooks
+are switched off there, `stickynote hooks status` says so and tells you what to
+add to `config.toml`.
+
+Agent notes ignore your active-hours window, since an agent finishing at 23:00
+is exactly when you want to know, but they do respect a pause.
+
+## Unlimited notes, optionally
+
+Off by default. With an API key, Sticky Note can write more of its own.
+
+```bash
+stickynote ai login                          # stored at ~/.config/stickynote/ai.json, mode 600
+stickynote brew --count 200 --review         # generate, approve one by one
+stickynote packs funny,brewed                # start using them
+stickynote config ai_auto_refill true        # top up in the background when they run low
+```
+
+Generation is a batch command rather than something that happens per
+notification, for two reasons. The delivery path runs from a launchd tick with
+nobody watching, so a hung API call is silence rather than a visible error. And
+an unreviewed line is one nobody approved, which is fine on average and bad on
+the day it lands wrong. Batching keeps the curation floor the bundled packs
+have and costs one request per few hundred notes.
+
+`stickynote config ai_live true` does generate per notification if you want it,
+with a hard timeout and a fall back to the pool. Every AI path fails soft: a
+missing key, a rate limit or an outage degrades to the bundled packs, never to
+no notification.
+
+## Other languages
+
+```bash
+stickynote translate sincere --to fr
+```
+
+The result is an ordinary editable pack in `~/.config/stickynote/packs/`.
+
+Worth saying plainly: machine translation handles `sincere` well and `funny`
+badly. Timing, idiom and wordplay are exactly what translation loses, and a
+joke that lands flat is worse than no joke. Expect to want a native speaker's
+pass over the output, which is why it arrives as a normal pack you can edit
+rather than something buried in the package.
+
+## The settings window
+
+```bash
+stickynote settings
+```
+
+Frequency, hours, packs, badge and duration, in a window rather than a
+questionnaire. It reads the config directly but applies every change by calling
+the CLI, so validation and side effects live in one place: changing the app
+icon has to bump the bundle generation and rebuild the app, changing the
+frequency has to reschedule the pending note, and a second implementation of
+those rules in Swift would rot quietly.
+
+`stickynote settings --menu-bar` puts an icon in the menu bar with pause,
+resume and nudge-now. Add `--at-login` to have it come back after a restart.
+
+## Moving from cheerbot
+
+```bash
+stickynote migrate
+```
+
+Copies your config, state and icon across, and retires the old launch agent
+and app so two of them never run at once. The old files are left in
+`~/.config/cheerbot` until you delete them. `stickynote start` does this
+automatically if it finds an old install.
+
+One thing cannot come with it. macOS ties notification permission to the bundle
+identifier, which necessarily changed, so you will approve the prompt once more
+and re-flip the Alerts style. The old "Cheerbot" entry stays in System Settings
+permanently; macOS offers no way to remove it.
 
 ## Configuration
 
@@ -59,7 +197,7 @@ stickynote config active_start 08:30       # active window, local time
 stickynote config active_end 19:00
 stickynote config active_days 0,1,2,3,4    # 0 = Monday ... 6 = Sunday
 stickynote config title "Hey you"
-stickynote config tone sincere             # funny | sincere | mixed
+stickynote config packs zen,sincere        # which theme packs to draw from
 stickynote config linger_seconds 30        # longer on screen; 0 = until dismissed
 stickynote config max_idle_minutes 10      # how long away before nudges are held
 stickynote config require_activity off     # nudge even when you are not there
@@ -75,15 +213,22 @@ stickynote config enabled off
 | `active_start` / `active_end` | 09:00 / 21:00 | Local-time window; wrapping past midnight (e.g. 22:00–02:00) works |
 | `active_days` | all | Days the window applies to |
 | `linger_seconds` | 15 | How long a notification stays on screen. Needs the Alerts style; see below. 0 leaves it until dismissed |
-| `tone` | `funny` | Which bundled pool to draw from: `funny`, `sincere`, or `mixed`. Ignored once you write your own messages file |
+| `packs` | `["funny"]` | Which theme packs to draw from. Ignored once you write your own messages file |
 | `require_activity` | true | Hold a nudge back unless you are actually at the machine |
 | `max_idle_minutes` | 5 | How long without keyboard or mouse input counts as away |
 | `emoji` | `random` | Which emoji: `random` draws from the pool, `off` empties the slot, anything else is used literally |
 | `emoji_placement` | `auto` | `badge`, `title`, `both`, `off`, or `auto` to use a badge when the transport supports one |
-| `app_icon` | 🌱 | The app's own icon: an emoji or a path to an image. Changing it bumps `bundle_generation` |
+| `app_icon` | 📝 | The app's own icon: an emoji or a path to an image. Changing it bumps `bundle_generation` |
 | `bundle_generation` | 1 | Bumped automatically when `app_icon` changes, to get past the frozen icon cache |
 | `no_repeat_window` | 80 | How many recent messages to avoid repeating. Scale it with the frequency |
 | `show_next` | true | When off, `status` hides the exact next-nudge time |
+| `hooks_respect_pause` | true | Whether agent notifications stay quiet while paused |
+| `ai_auto_refill` | false | Top the generated pack up in the background when unseen notes run low |
+| `ai_live` | false | Generate each note as it is sent, with a timeout and a fall back to the pool |
+| `ai_style` | `""` | Guidance for generation, e.g. "dry, British, no exclamation marks" |
+
+The old `tone` setting still works: a config written before packs existed is
+translated on load, and `stickynote config tone mixed` is accepted.
 
 Timing changes reschedule the pending nudge immediately.
 
@@ -157,8 +302,7 @@ machines without Xcode Command Line Tools still get an emoji.
 
 ## Messages and emoji
 
-Two bundled message pools ship with it: 480 funny ones (the default) and 102
-straight ones, selected with `tone`, plus 47 emoji. All of it is replaceable:
+Five packs ship, plus 47 emoji. All of it is replaceable:
 
 ```bash
 stickynote messages edit       # seeds ~/.config/stickynote/messages.txt with what's in use
@@ -170,8 +314,9 @@ stickynote emoji add 🦆
 stickynote emoji list
 ```
 
-Your file replaces the bundled set entirely, and `tone` no longer applies. One
-entry per line; blank lines and `#` comments are ignored. To preview:
+A `messages.txt` of your own replaces every pack outright, which is the blunt
+option; writing a pack instead lets you keep mixing. One entry per line; blank
+lines and `#` comments are ignored. To preview:
 
 ```bash
 stickynote now -e 🦆 -m "Just checking the layout"   # one specific combination
@@ -201,17 +346,17 @@ has a distribution instead of a floor, and the bottom of that distribution
 eventually arrives at the worst possible moment, with nobody having read it
 first.
 
-That is also the argument against generating them live. It would trade a
-zero-dependency offline tool for one needing a network, an API key, a per-nudge
-cost, and a fallback pool for when any of that fails — and a message written
-while you are not looking is one nobody approved. Novelty is easy; a random
-suffix makes every line unique. Being *good* is the hard part, and uniqueness
-does not help with it.
+That is also the argument against generating them live by default. It trades a
+zero-dependency offline tool for one needing a network, an API key, a per-note
+cost, and a fallback for when any of that fails — and a note written while you
+are not looking is one nobody approved. Novelty is easy; a random suffix makes
+every line unique. Being *good* is the hard part, and uniqueness does not help
+with it.
 
-The middle path, if the pool ever feels stale, is to use a model as an
-authoring tool: generate candidates offline, read them, keep the ones that are
-actually funny, and commit them. Same scale, no runtime dependency, floor
-intact.
+The middle path is what `stickynote brew` does: use a model as an authoring
+tool, generating candidates offline so you can read them, keep the ones that
+are actually funny, and leave the rest. Same scale, no runtime dependency,
+curation floor intact. `ai_live` exists for anyone who disagrees, and is off.
 
 ## How long it stays up
 
@@ -274,11 +419,21 @@ Logs: `~/.config/stickynote/stickynote.log` for deliveries, and
 `~/.config/stickynote/notifier.log` for helper errors, which is the only way to
 see a refused notification given delivery is asynchronous.
 
+One macOS trap is worth knowing about, because it looks like a bug in this
+project. An authorization request that reaches macOS before LaunchServices has
+finished registering a freshly built bundle is refused, and that refusal is
+remembered against the bundle identifier forever, with no way to clear it.
+`stickynote start` waits for registration, notices the refusal if it happens
+anyway, and rebuilds once under a new `bundle_generation`, which is the only
+recovery there is.
+
 ## Uninstall
 
 ```bash
+stickynote hooks uninstall     # remove the agent hooks, leaving your others alone
 stickynote stop --purge        # unload agent, delete the app bundle and plist
-rm -rf ~/.config/stickynote    # optional: settings, state, custom messages
+rm -rf ~/.config/stickynote    # optional: settings, state, packs, API key
+rm -f ~/.local/bin/stickynote ~/Library/LaunchAgents/dev.stickynote.menubar.plist
 ```
 
 ## Development
