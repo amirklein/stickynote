@@ -71,7 +71,7 @@ cheerbot config enabled off
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `min_minutes` / `max_minutes` | 20 / 70 | Each notification lands at a uniformly random gap in this range |
+| `min_minutes` / `max_minutes` | 15 / 50 | Each notification lands at a uniformly random gap in this range |
 | `active_start` / `active_end` | 09:00 / 21:00 | Local-time window; wrapping past midnight (e.g. 22:00–02:00) works |
 | `active_days` | all | Days the window applies to |
 | `linger_seconds` | 15 | How long a notification stays on screen. Needs the Alerts style; see below. 0 leaves it until dismissed |
@@ -82,7 +82,7 @@ cheerbot config enabled off
 | `emoji_placement` | `auto` | `badge`, `title`, `both`, `off`, or `auto` to use a badge when the transport supports one |
 | `app_icon` | 🌱 | The app's own icon: an emoji or a path to an image. Changing it bumps `bundle_generation` |
 | `bundle_generation` | 1 | Bumped automatically when `app_icon` changes, to get past the frozen icon cache |
-| `no_repeat_window` | 60 | How many recent messages to avoid repeating. Scale it with the frequency |
+| `no_repeat_window` | 80 | How many recent messages to avoid repeating. Scale it with the frequency |
 | `show_next` | true | When off, `status` hides the exact next-nudge time |
 
 Timing changes reschedule the pending nudge immediately.
@@ -157,7 +157,7 @@ machines without Xcode Command Line Tools still get an emoji.
 
 ## Messages and emoji
 
-Two bundled message pools ship with it: 280 funny ones (the default) and 102
+Two bundled message pools ship with it: 480 funny ones (the default) and 102
 straight ones, selected with `tone`, plus 47 emoji. All of it is replaceable:
 
 ```bash
@@ -180,15 +180,15 @@ cheerbot demo -n 5 --min 8 --max 20                # a burst, at random short ga
 
 ## Why not a million messages?
 
-At roughly 15 nudges a day you see about 5,500 a year, so pool size maps to
+At roughly 20 nudges a day you see about 7,300 a year, so pool size maps to
 freshness like this:
 
 | Pool | Times you'd see each line per year | First possible repeat |
 | --- | --- | --- |
-| 280 (today) | ~20 | ~19 days |
-| 1,000 | ~5 | ~9 weeks |
-| 10,000 | ~0.5 | ~1.8 years |
-| 1,000,000 | ~0.005 | ~180 years |
+| 480 (today) | ~15 | ~24 days |
+| 1,000 | ~7 | ~7 weeks |
+| 10,000 | ~0.7 | ~1.4 years |
+| 1,000,000 | ~0.007 | ~137 years |
 
 Storage was never the constraint; a million lines is a few dozen megabytes.
 The real ceiling is that past about 10,000 you will never read most of them, so
