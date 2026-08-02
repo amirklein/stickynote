@@ -1,4 +1,4 @@
-# Cheerbot
+# Sticky Note
 
 Random encouraging notifications on macOS. A background LaunchAgent picks a
 random moment inside your active hours, picks a message you haven't seen
@@ -14,59 +14,59 @@ No dependencies beyond the system Python, no menu bar icon, no account.
 
 That does three things:
 
-1. Builds `~/Applications/Cheerbot.app`, a small Swift helper that posts
+1. Builds `~/Applications/StickyNote.app`, a small Swift helper that posts
    notifications through the `UserNotifications` framework, with the app icon
    baked in beforehand (see [Badges](#badges) for why the order matters). If
    `swiftc` is unavailable it falls back to an AppleScript applet, which works
    but cannot show badges.
-2. Installs the LaunchAgent at `~/Library/LaunchAgents/dev.cheerbot.agent.plist`,
+2. Installs the LaunchAgent at `~/Library/LaunchAgents/dev.stickynote.agent.plist`,
    which starts at login and polls every 5 minutes.
 3. Sends one notification so macOS shows the permission prompt.
 
 **Approve the permission prompt the first time**, otherwise everything will run
-silently and deliver nothing. If you miss it, enable Cheerbot under System
+silently and deliver nothing. If you miss it, enable Sticky Note under System
 Settings → Notifications.
 
 To call it from anywhere:
 
 ```bash
-ln -s "$PWD/bin/cheerbot" /usr/local/bin/cheerbot
+ln -s "$PWD/bin/stickynote" /usr/local/bin/stickynote
 ```
 
 ## Usage
 
 ```bash
-cheerbot status              # schedule, next nudge, health
-cheerbot now                 # encourage me right now
-cheerbot demo                # watch a burst of them up close, without touching the schedule
-cheerbot alerts              # make notifications last longer than a five-second banner
-cheerbot surprise            # re-roll the timing at random, and stop showing me when
-cheerbot pause 3h            # quiet for a while (also: 90m, 2d, today)
-cheerbot resume
-cheerbot stop                # unload the agent
-cheerbot start               # load it again
+stickynote status              # schedule, next nudge, health
+stickynote now                 # encourage me right now
+stickynote demo                # watch a burst of them up close, without touching the schedule
+stickynote alerts              # make notifications last longer than a five-second banner
+stickynote surprise            # re-roll the timing at random, and stop showing me when
+stickynote pause 3h            # quiet for a while (also: 90m, 2d, today)
+stickynote resume
+stickynote stop                # unload the agent
+stickynote start               # load it again
 ```
 
 ## Configuration
 
-Settings live in `~/.config/cheerbot/config.json`, edited through the CLI:
+Settings live in `~/.config/stickynote/config.json`, edited through the CLI:
 
 ```bash
-cheerbot config                          # show everything
-cheerbot config min_minutes 20           # nudge more often
-cheerbot config max_minutes 90
-cheerbot config active_start 08:30       # active window, local time
-cheerbot config active_end 19:00
-cheerbot config active_days 0,1,2,3,4    # 0 = Monday ... 6 = Sunday
-cheerbot config title "Hey you"
-cheerbot config tone sincere             # funny | sincere | mixed
-cheerbot config linger_seconds 30        # longer on screen; 0 = until dismissed
-cheerbot config max_idle_minutes 10      # how long away before nudges are held
-cheerbot config require_activity off     # nudge even when you are not there
-cheerbot config emoji off                # or a literal emoji, or "random"
-cheerbot config sound Glass              # any macOS alert sound, "" for silent
-cheerbot config emoji_placement title    # badge | title | both | off | auto
-cheerbot config enabled off
+stickynote config                          # show everything
+stickynote config min_minutes 20           # nudge more often
+stickynote config max_minutes 90
+stickynote config active_start 08:30       # active window, local time
+stickynote config active_end 19:00
+stickynote config active_days 0,1,2,3,4    # 0 = Monday ... 6 = Sunday
+stickynote config title "Hey you"
+stickynote config tone sincere             # funny | sincere | mixed
+stickynote config linger_seconds 30        # longer on screen; 0 = until dismissed
+stickynote config max_idle_minutes 10      # how long away before nudges are held
+stickynote config require_activity off     # nudge even when you are not there
+stickynote config emoji off                # or a literal emoji, or "random"
+stickynote config sound Glass              # any macOS alert sound, "" for silent
+stickynote config emoji_placement title    # badge | title | both | off | auto
+stickynote config enabled off
 ```
 
 | Setting | Default | Meaning |
@@ -87,8 +87,8 @@ cheerbot config enabled off
 
 Timing changes reschedule the pending nudge immediately.
 
-`cheerbot surprise` rolls all the timing settings for you and turns `show_next`
-off, so even you don't know when the next one is coming. `cheerbot config` still
+`stickynote surprise` rolls all the timing settings for you and turns `show_next`
+off, so even you don't know when the next one is coming. `stickynote config` still
 shows what it picked if you want to peek.
 
 ## Badges
@@ -114,7 +114,7 @@ first time the bundle registers for notification permission. Replacing the
 `usernotificationsd` all update Finder and LaunchServices but never the banner.
 The corollary is that the icon must be baked in *before* the bundle is ever
 launched, which is exactly what `nativeapp.build()` does — miss that ordering
-and Cheerbot is stuck with a generic icon forever, with no way back short of a
+and Sticky Note is stuck with a generic icon forever, with no way back short of a
 new bundle identifier.
 
 So: the app icon is fixed (`app_icon`, default 🌱) and the badge beside the text
@@ -125,12 +125,12 @@ is what varies.
 `app_icon` takes either an emoji or a path to an image:
 
 ```bash
-cheerbot config app_icon ☀️
-cheerbot config app_icon ~/Pictures/my-icon.png
-cheerbot start                 # rebuild, then approve the new permission prompt
+stickynote config app_icon ☀️
+stickynote config app_icon ~/Pictures/my-icon.png
+stickynote start                 # rebuild, then approve the new permission prompt
 ```
 
-Images are copied into `~/.config/cheerbot/` so the icon keeps working after you
+Images are copied into `~/.config/stickynote/` so the icon keeps working after you
 move the original, and converted to real PNG on the way in — files named `.png`
 while containing JPEG data are common, and `iconutil` rejects them. Non-square
 images are padded rather than stretched.
@@ -151,7 +151,7 @@ detailed lettering turns to mush. One bold shape with high contrast survives;
 fine text does not, no matter how large the source file is.
 
 If you would rather have the emoji in the title text as before, set
-`cheerbot config emoji_placement title`. The default, `auto`, uses a badge when
+`stickynote config emoji_placement title`. The default, `auto`, uses a badge when
 the native helper is installed and falls back to the title when it isn't, so
 machines without Xcode Command Line Tools still get an emoji.
 
@@ -161,21 +161,21 @@ Two bundled message pools ship with it: 480 funny ones (the default) and 102
 straight ones, selected with `tone`, plus 47 emoji. All of it is replaceable:
 
 ```bash
-cheerbot messages edit       # seeds ~/.config/cheerbot/messages.txt with what's in use
-cheerbot messages add "Your text here"
-cheerbot messages list
+stickynote messages edit       # seeds ~/.config/stickynote/messages.txt with what's in use
+stickynote messages add "Your text here"
+stickynote messages list
 
-cheerbot emoji edit          # same, for ~/.config/cheerbot/emoji.txt
-cheerbot emoji add 🦆
-cheerbot emoji list
+stickynote emoji edit          # same, for ~/.config/stickynote/emoji.txt
+stickynote emoji add 🦆
+stickynote emoji list
 ```
 
 Your file replaces the bundled set entirely, and `tone` no longer applies. One
 entry per line; blank lines and `#` comments are ignored. To preview:
 
 ```bash
-cheerbot now -e 🦆 -m "Just checking the layout"   # one specific combination
-cheerbot demo -n 5 --min 8 --max 20                # a burst, at random short gaps
+stickynote now -e 🦆 -m "Just checking the layout"   # one specific combination
+stickynote demo -n 5 --min 8 --max 20                # a burst, at random short gaps
 ```
 
 ## Why not a million messages?
@@ -223,10 +223,10 @@ app asks for; an **alert** stays until it is dismissed. The old
 limits to apps. So the switch is yours to flip, once:
 
 ```bash
-cheerbot alerts     # opens the pane, tells you what to change
+stickynote alerts     # opens the pane, tells you what to change
 ```
 
-With Cheerbot set to Alerts, `linger_seconds` becomes real: the helper stays
+With Sticky Note set to Alerts, `linger_seconds` becomes real: the helper stays
 alive that long and then withdraws its own notification, which turns "until
 dismissed" into a duration you choose. Set it to `0` to leave notifications up
 until you dismiss them yourself.
@@ -234,10 +234,10 @@ until you dismiss them yourself.
 Two things worth knowing. Withdrawing also takes the notification out of
 Notification Center, so it won't be there to scroll back to; use `0` if you
 want them to accumulate. And if several entries in System Settings are named
-Cheerbot, left over from earlier icon changes, the live one is whichever shows
+Sticky Note, left over from earlier icon changes, the live one is whichever shows
 your current app icon.
 
-`cheerbot status` reports the configured duration, but it cannot confirm the
+`stickynote status` reports the configured duration, but it cannot confirm the
 style: `UNNotificationSettings` keeps reporting `banner` even for a bundle
 switched to Alerts, so the only reliable check is watching one land.
 
@@ -252,13 +252,13 @@ come back rather than never.
 Idle time comes from `ioreg`'s `HIDIdleTime`, which needs no dependencies and
 works from a `launchd` job. If that probe ever stops working the check fails
 open and nudges continue, since going permanently silent is the worse failure.
-`cheerbot status` shows the current reading.
+`stickynote status` shows the current reading.
 
 ## How it works
 
-`launchd` runs `cheerbot tick` every 5 minutes. A tick is cheap and almost
+`launchd` runs `stickynote tick` every 5 minutes. A tick is cheap and almost
 always a no-op: it compares the current time against `next_fire` in
-`~/.config/cheerbot/state.json`, and only when that has passed (and the moment
+`~/.config/stickynote/state.json`, and only when that has passed (and the moment
 is inside the active window, and you're at the machine) does it deliver a
 message and roll a new random
 `next_fire`. Polling keeps the timing random without needing a resident process,
@@ -268,17 +268,17 @@ missed nudge is skipped rather than dumped on you all at once on wake.
 Delivery has three transports, best first: the native Swift helper (the only one
 that can show a badge), the AppleScript applet, and plain `osascript`. The last
 still works but attributes notifications to whatever is hosting the script.
-`cheerbot status` reports which one is in use.
+`stickynote status` reports which one is in use.
 
-Logs: `~/.config/cheerbot/cheerbot.log` for deliveries, and
-`~/.config/cheerbot/notifier.log` for helper errors, which is the only way to
+Logs: `~/.config/stickynote/stickynote.log` for deliveries, and
+`~/.config/stickynote/notifier.log` for helper errors, which is the only way to
 see a refused notification given delivery is asynchronous.
 
 ## Uninstall
 
 ```bash
-cheerbot stop --purge        # unload agent, delete the app bundle and plist
-rm -rf ~/.config/cheerbot    # optional: settings, state, custom messages
+stickynote stop --purge        # unload agent, delete the app bundle and plist
+rm -rf ~/.config/stickynote    # optional: settings, state, custom messages
 ```
 
 ## Development
@@ -287,6 +287,6 @@ rm -rf ~/.config/cheerbot    # optional: settings, state, custom messages
 python3 -m unittest discover -s tests -v
 ```
 
-Tests run against a temporary `CHEERBOT_HOME`, so they never touch your real
+Tests run against a temporary `STICKYNOTE_HOME`, so they never touch your real
 config, and the scheduler takes its delivery function as an argument so nothing
 gets sent while testing.

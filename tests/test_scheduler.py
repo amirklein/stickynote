@@ -8,12 +8,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-_TMP = tempfile.mkdtemp(prefix="cheerbot-test-")
-os.environ["CHEERBOT_HOME"] = _TMP
+_TMP = tempfile.mkdtemp(prefix="stickynote-test-")
+os.environ["STICKYNOTE_HOME"] = _TMP
 
-from cheerbot import activity, cli, messages, nativeapp, notifier, scheduler  # noqa: E402
-from cheerbot.config import Config, coerce  # noqa: E402
-from cheerbot.state import State  # noqa: E402
+from stickynote import activity, cli, messages, nativeapp, notifier, scheduler  # noqa: E402
+from stickynote.config import Config, coerce  # noqa: E402
+from stickynote.state import State  # noqa: E402
 
 
 def at(day: str, clock: str) -> datetime:
@@ -307,17 +307,17 @@ class EmojiTests(unittest.TestCase):
 
 class PlacementTests(unittest.TestCase):
     def test_badge_placement_keeps_the_title_clean(self):
-        self.assertEqual(notifier.compose("Cheerbot", "✨", "badge"), ("Cheerbot", "✨"))
+        self.assertEqual(notifier.compose("Sticky Note", "✨", "badge"), ("Sticky Note", "✨"))
 
     def test_title_placement_prefixes_the_text(self):
-        self.assertEqual(notifier.compose("Cheerbot", "✨", "title"), ("✨ Cheerbot", ""))
+        self.assertEqual(notifier.compose("Sticky Note", "✨", "title"), ("✨ Sticky Note", ""))
 
     def test_both_places_it_twice(self):
-        self.assertEqual(notifier.compose("Cheerbot", "✨", "both"), ("✨ Cheerbot", "✨"))
+        self.assertEqual(notifier.compose("Sticky Note", "✨", "both"), ("✨ Sticky Note", "✨"))
 
     def test_off_and_empty_emoji_yield_nothing(self):
-        self.assertEqual(notifier.compose("Cheerbot", "✨", "off"), ("Cheerbot", ""))
-        self.assertEqual(notifier.compose("Cheerbot", "", "badge"), ("Cheerbot", ""))
+        self.assertEqual(notifier.compose("Sticky Note", "✨", "off"), ("Sticky Note", ""))
+        self.assertEqual(notifier.compose("Sticky Note", "", "badge"), ("Sticky Note", ""))
 
     def test_auto_follows_what_the_transport_supports(self):
         original = notifier.supports_badges
@@ -379,21 +379,21 @@ class TransportTests(unittest.TestCase):
         """A badge must never leak into the body text of a text-only transport."""
         self.use(native=False, applet=True)
         placement = notifier.resolve_placement("auto")
-        title, badge = notifier.compose("Cheerbot", "✨", placement)
+        title, badge = notifier.compose("Sticky Note", "✨", placement)
         self.assertEqual(badge, "")
-        self.assertEqual(title, "✨ Cheerbot")
+        self.assertEqual(title, "✨ Sticky Note")
 
 
 class AppIconTests(unittest.TestCase):
     def test_generation_one_keeps_the_original_identifier(self):
         """Existing installs must not be pushed onto a new bundle id."""
-        self.assertEqual(nativeapp.bundle_id(1), "dev.cheerbot.notifier")
-        self.assertEqual(nativeapp.bundle_id(0), "dev.cheerbot.notifier")
+        self.assertEqual(nativeapp.bundle_id(1), "dev.stickynote.notifier")
+        self.assertEqual(nativeapp.bundle_id(0), "dev.stickynote.notifier")
 
     def test_later_generations_are_distinct(self):
         ids = {nativeapp.bundle_id(gen) for gen in range(1, 6)}
         self.assertEqual(len(ids), 5)
-        self.assertEqual(nativeapp.bundle_id(2), "dev.cheerbot.notifier2")
+        self.assertEqual(nativeapp.bundle_id(2), "dev.stickynote.notifier2")
 
     def test_path_shaped_values_are_recognised(self):
         """A path that does not exist should be rejected, not taken as an emoji."""

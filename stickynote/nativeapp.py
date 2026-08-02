@@ -27,8 +27,8 @@ from typing import List, Optional, Tuple
 
 from . import paths
 
-BUNDLE_ID = "dev.cheerbot.notifier"
-BINARY_NAME = "cheerbot-notifier"
+BUNDLE_ID = "dev.stickynote.notifier"
+BINARY_NAME = "stickynote-notifier"
 
 
 def bundle_id(generation: int = 1) -> str:
@@ -39,7 +39,7 @@ def bundle_id(generation: int = 1) -> str:
     Generation 1 keeps the original id so existing installs are untouched.
     """
     return BUNDLE_ID if generation <= 1 else f"{BUNDLE_ID}{generation}"
-SOURCE = paths.REPO_ROOT / "notifier" / "CheerbotNotifier.swift"
+SOURCE = paths.NOTIFIER_SOURCE
 
 # Sizes iconutil expects in an .iconset, each also needed at @2x.
 _ICON_SIZES = (16, 32, 128, 256, 512)
@@ -155,7 +155,7 @@ def _build_icon(binary: Path, icon: str, resources: Path) -> None:
 def _write_info_plist(contents: Path, generation: int) -> None:
     info = {
         "CFBundleName": paths.APP_NAME,
-        "CFBundleDisplayName": paths.APP_NAME,
+        "CFBundleDisplayName": paths.DISPLAY_NAME,
         "CFBundleIdentifier": bundle_id(generation),
         "CFBundleExecutable": BINARY_NAME,
         "CFBundleIconFile": "AppIcon",
@@ -170,8 +170,8 @@ def _write_info_plist(contents: Path, generation: int) -> None:
         plistlib.dump(info, handle)
 
 
-def build(icon: str = "🌱", generation: int = 1) -> Path:
-    """Compile and assemble ~/Applications/Cheerbot.app, ready but unlaunched.
+def build(icon: str = "📝", generation: int = 1) -> Path:
+    """Compile and assemble ~/Applications/StickyNote.app, ready but unlaunched.
 
     The icon is written before the bundle is ever launched, which is required:
     macOS caches it at the first permission grant and never re-reads it.
@@ -184,7 +184,7 @@ def build(icon: str = "🌱", generation: int = 1) -> Path:
     contents = app / "Contents"
     binary = contents / "MacOS" / BINARY_NAME
     _compile(binary)
-    _build_icon(binary, icon or "🌱", contents / "Resources")
+    _build_icon(binary, icon or "📝", contents / "Resources")
     _write_info_plist(contents, generation)
 
     # Ad-hoc signing is enough for local use, but the bundle must be signed
@@ -224,9 +224,9 @@ def adopt_icon(source: Path) -> Path:
 
 
 def log_path() -> Path:
-    # Mirrors the hard-coded location in CheerbotNotifier.swift, which has no
-    # way to learn about CHEERBOT_HOME.
-    return Path.home() / ".config" / "cheerbot" / "notifier.log"
+    # Mirrors the hard-coded location in data/notifier.swift, which has no way
+    # to learn about STICKYNOTE_HOME.
+    return Path.home() / ".config" / "stickynote" / "notifier.log"
 
 
 def send(title: str, body: str, emoji: str = "", sound: str = "", linger: float = 0.0) -> None:

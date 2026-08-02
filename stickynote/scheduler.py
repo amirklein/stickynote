@@ -71,7 +71,7 @@ def tick(cfg: Config, state: State, now: datetime, deliver) -> TickResult:
     timestamp = now.timestamp()
 
     if not cfg.enabled:
-        return TickResult("disabled", detail="cheerbot is disabled")
+        return TickResult("disabled", detail="stickynote is disabled")
 
     if state.paused_until and timestamp < state.paused_until:
         resume_at = datetime.fromtimestamp(state.paused_until)

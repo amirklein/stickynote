@@ -16,8 +16,8 @@ from . import paths
 # notification times are random; this is just the polling granularity.
 POLL_SECONDS = 300
 
-APPLESCRIPT_SOURCE = Path(__file__).resolve().parent / "data" / "notifier.applescript"
-APPLET_BUNDLE_ID = "dev.cheerbot.app"
+APPLESCRIPT_SOURCE = paths.APPLESCRIPT_SOURCE
+APPLET_BUNDLE_ID = "dev.stickynote.app"
 
 
 def _run(cmd: List[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -47,7 +47,7 @@ def build_applet() -> Path:
     with info.open("rb") as handle:
         data = plistlib.load(handle)
     data["CFBundleName"] = paths.APP_NAME
-    data["CFBundleDisplayName"] = paths.APP_NAME
+    data["CFBundleDisplayName"] = paths.DISPLAY_NAME
     data["CFBundleIdentifier"] = APPLET_BUNDLE_ID
     # Keep the applet out of the Dock and the app switcher.
     data["LSUIElement"] = True
@@ -76,17 +76,25 @@ def write_plist() -> Path:
     plist.parent.mkdir(parents=True, exist_ok=True)
     paths.log_path().parent.mkdir(parents=True, exist_ok=True)
 
+    # `-m` rather than a path to a script: the job then survives the package
+    # being installed anywhere, and does not pin the agent to a git checkout.
     job = {
         "Label": paths.LABEL,
-        "ProgramArguments": [sys.executable, str(paths.ENTRYPOINT), "tick"],
+        "ProgramArguments": [sys.executable, "-m", "stickynote", "tick"],
         "StartInterval": POLL_SECONDS,
         "RunAtLoad": True,
         "ProcessType": "Background",
         "StandardOutPath": str(paths.log_path()),
         "StandardErrorPath": str(paths.log_path()),
     }
-    if os.environ.get("CHEERBOT_HOME"):
-        job["EnvironmentVariables"] = {"CHEERBOT_HOME": os.environ["CHEERBOT_HOME"]}
+
+    # launchd starts with a bare environment, so an import that works in a
+    # shell can still fail here. Naming the directory holding the package is
+    # redundant for a site-packages install and essential for a checkout.
+    environment = {"PYTHONPATH": str(paths.PACKAGE_ROOT.parent)}
+    if os.environ.get("STICKYNOTE_HOME"):
+        environment["STICKYNOTE_HOME"] = os.environ["STICKYNOTE_HOME"]
+    job["EnvironmentVariables"] = environment
 
     with plist.open("wb") as handle:
         plistlib.dump(job, handle)
