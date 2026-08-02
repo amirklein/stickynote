@@ -1,5 +1,5 @@
-# Sticky Note's default encouragements. One per line; blank lines and #comments are ignored.
-# Run `stickynote messages edit` to make your own copy in ~/.config/stickynote/messages.txt.
+# Sincere: Straightforward encouragement, no jokes.
+# One per line; blank lines and #comments ignored.
 
 You've handled every single hard day so far. That's a perfect record.
 Progress counts even when nobody claps for it.

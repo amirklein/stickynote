@@ -1,3 +1,6 @@
+import contextlib
+import io
+import json
 import os
 import re
 import sys
@@ -11,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 _TMP = tempfile.mkdtemp(prefix="stickynote-test-")
 os.environ["STICKYNOTE_HOME"] = _TMP
 
-from stickynote import activity, cli, messages, nativeapp, notifier, scheduler  # noqa: E402
+from stickynote import (  # noqa: E402
+    activity, cli, messages, nativeapp, notifier, packs, paths, scheduler, wizard,
+)
 from stickynote.config import Config, coerce  # noqa: E402
 from stickynote.state import State  # noqa: E402
 
@@ -126,39 +131,76 @@ class RandomizeTests(unittest.TestCase):
             self.assertTrue(cfg.allows(nxt))
 
 
-class ToneTests(unittest.TestCase):
-    def test_each_tone_loads_a_usable_pool(self):
-        for tone in ("funny", "sincere", "mixed"):
-            pool = messages.load(tone)
-            self.assertGreater(len(pool), 50, tone)
-            self.assertEqual(len(pool), len(set(pool)), f"{tone} has duplicates")
+class PackTests(unittest.TestCase):
+    def test_every_bundled_pack_is_usable(self):
+        for pack_id, pack in packs.available().items():
+            lines = pack.messages()
+            self.assertGreater(len(lines), 40, pack_id)
+            self.assertEqual(len(lines), len(set(lines)), f"{pack_id} has duplicates")
+            self.assertTrue(pack.name and pack.language, pack_id)
 
-    def test_mixed_is_the_union_of_both(self):
+    def test_the_expected_packs_ship(self):
         self.assertEqual(
-            len(messages.load("mixed")),
-            len(messages.load("funny")) + len(messages.load("sincere")),
+            set(packs.available()), {"funny", "sincere", "cosmic", "office", "zen"}
+        )
+
+    def test_mixing_packs_does_not_double_count(self):
+        """Themed packs are views of the funny pool, so overlap is expected."""
+        mixed = messages.load(["funny", "cosmic"])
+        self.assertEqual(len(mixed), len(set(mixed)))
+        self.assertEqual(len(mixed), len(messages.load(["funny"])))
+
+    def test_mixing_unrelated_packs_adds_up(self):
+        self.assertEqual(
+            len(messages.load(["funny", "sincere"])),
+            len(messages.load(["funny"])) + len(messages.load(["sincere"])),
         )
 
     def test_funny_and_sincere_do_not_overlap(self):
-        self.assertFalse(set(messages.load("funny")) & set(messages.load("sincere")))
+        self.assertFalse(set(messages.load(["funny"])) & set(messages.load(["sincere"])))
 
-    def test_no_near_duplicates_slip_into_a_pool(self):
+    def test_no_near_duplicates_slip_into_a_pack(self):
         """Exact-match checking misses lines differing only in punctuation."""
-        for tone in ("funny", "sincere"):
+        for pack_id, pack in packs.available().items():
             seen = {}
-            for line in messages.load(tone):
+            for line in pack.messages():
                 key = re.sub(r"[^a-z0-9 ]", "", line.lower())
                 key = re.sub(r"\s+", " ", key).strip()
-                self.assertNotIn(key, seen, f"{tone}: {line!r} ~ {seen.get(key)!r}")
+                self.assertNotIn(key, seen, f"{pack_id}: {line!r} ~ {seen.get(key)!r}")
                 seen[key] = line
 
     def test_the_funny_pool_is_large_enough_to_stay_fresh(self):
-        pool = messages.load("funny")
-        self.assertGreater(len(pool), 450, "expanded pool shrank unexpectedly")
+        self.assertGreater(len(messages.load(["funny"])), 450, "the pool shrank")
 
-    def test_config_rejects_an_unknown_tone(self):
+    def test_config_rejects_an_unknown_pack(self):
         with self.assertRaises(ValueError):
-            Config(tone="sarcastic").validate()
+            Config(packs=["sarcastic"]).validate()
+
+    def test_config_rejects_an_empty_selection(self):
+        with self.assertRaises(ValueError):
+            Config(packs=[]).validate()
+
+    def test_a_tone_config_still_works(self):
+        """Configs written before packs existed must not need editing."""
+        path = paths.config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"tone": "mixed", "min_minutes": 20}))
+        self.addCleanup(path.unlink)
+
+        cfg = Config.load()
+        self.assertEqual(cfg.packs, ["funny", "sincere"])
+        self.assertEqual(cfg.min_minutes, 20)
+
+    def test_packs_wins_when_a_config_carries_both(self):
+        path = paths.config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"tone": "mixed", "packs": ["zen"]}))
+        self.addCleanup(path.unlink)
+
+        self.assertEqual(Config.load().packs, ["zen"])
+
+    def test_a_pack_list_can_be_set_from_the_command_line(self):
+        self.assertEqual(coerce("packs", "funny, zen"), ["funny", "zen"])
 
 
 class ActivityGateTests(unittest.TestCase):
@@ -441,6 +483,90 @@ class ConfigTests(unittest.TestCase):
         cfg = Config(title="Pep", min_minutes=5, active_days=[0, 4])
         cfg.save()
         self.assertEqual(Config.load().as_dict(), cfg.as_dict())
+
+
+class WizardTests(unittest.TestCase):
+    """The wizard's whole job is to change settings without touching the package."""
+
+    def setUp(self):
+        self.answers = []
+        self.original_input = wizard.read_line
+        wizard.read_line = self.next_answer
+        # The questionnaire is chatty; keep it out of the test report.
+        quiet = contextlib.redirect_stdout(io.StringIO())
+        quiet.__enter__()
+        self.addCleanup(quiet.__exit__, None, None, None)
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        wizard.read_line = self.original_input
+
+    def next_answer(self, _prompt=""):
+        if not self.answers:
+            raise EOFError("the wizard asked more questions than were answered")
+        return self.answers.pop(0)
+
+    def answer(self, *values):
+        self.answers = [str(v) for v in values]
+
+    # Order: rhythm, start, end, weekends, activity, theme, badge, icon, seconds.
+    def full_run(self, *values):
+        self.answer(*values)
+        return wizard.run(Config())
+
+    def test_a_full_pass_produces_a_valid_config(self):
+        cfg = self.full_run(2, "08:00", "18:00", "n", "y", 1, 1, "📝", 20)
+        cfg.validate()
+        self.assertEqual(cfg.active_days, [0, 1, 2, 3, 4])
+        self.assertEqual(cfg.active_start, "08:00")
+        self.assertEqual(cfg.linger_seconds, 20)
+        self.assertEqual(cfg.emoji, "random")
+
+    def test_defaults_survive_an_impatient_user(self):
+        """Pressing return through every question must still be valid."""
+        cfg = self.full_run(*[""] * 9)
+        cfg.validate()
+
+    def test_the_rhythm_choice_sets_the_interval(self):
+        cfg = self.full_run(1, "", "", "", "", "", "", "", "")
+        self.assertEqual((cfg.min_minutes, cfg.max_minutes), (45.0, 180.0))
+
+    def test_the_no_repeat_window_follows_the_frequency(self):
+        """A window fixed while the rhythm changes would let echoes through."""
+        gentle = self.full_run(1, "", "", "", "", "", "", "", "")
+        constant = self.full_run(4, "", "", "", "", "", "", "", "")
+        self.assertGreater(constant.no_repeat_window, gentle.no_repeat_window)
+
+    def test_a_mix_of_packs_can_be_chosen(self):
+        catalogue = list(packs.available())
+        cfg = self.full_run("", "", "", "", "", len(catalogue) + 1, "funny, zen",
+                            "", "", "")
+        self.assertEqual(cfg.packs, ["funny", "zen"])
+
+    def test_a_bad_pack_name_is_asked_again_rather_than_saved(self):
+        catalogue = list(packs.available())
+        cfg = self.full_run("", "", "", "", "", len(catalogue) + 1,
+                            "nonsense", "zen", "", "", "")
+        self.assertEqual(cfg.packs, ["zen"])
+
+    def test_nothing_is_written_inside_the_package(self):
+        """A package that changes per user cannot be upgraded or reasoned about."""
+        package = paths.PACKAGE_ROOT
+        before = {p: p.stat().st_mtime_ns for p in package.rglob("*") if p.is_file()}
+
+        cfg = self.full_run(3, "09:00", "21:00", "y", "y", 1, 1, "📝", 15)
+        cfg.save()
+
+        after = {p: p.stat().st_mtime_ns for p in package.rglob("*") if p.is_file()}
+        self.assertEqual(set(before), set(after), "the wizard added or removed a file")
+        changed = [str(p) for p in before if before[p] != after[p]]
+        self.assertEqual(changed, [], "the wizard modified bundled files")
+
+    def test_everything_it_writes_lands_under_the_config_home(self):
+        cfg = self.full_run(*[""] * 9)
+        cfg.save()
+        self.assertTrue(paths.config_path().exists())
+        self.assertTrue(str(paths.config_path()).startswith(os.environ["STICKYNOTE_HOME"]))
 
 
 if __name__ == "__main__":
