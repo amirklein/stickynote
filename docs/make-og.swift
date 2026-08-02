@@ -72,6 +72,7 @@ tilt.translateX(by: 905, yBy: 330)
 tilt.rotate(byDegrees: -8)
 tilt.concat()
 
+NSGraphicsContext.saveGraphicsState()
 let shadow = NSShadow()
 shadow.shadowColor = NSColor.black.withAlphaComponent(0.16)
 shadow.shadowBlurRadius = 34
@@ -81,8 +82,8 @@ shadow.set()
 let noteRect = NSRect(x: -125, y: -125, width: 250, height: 250)
 NSGradient(starting: noteYellow, ending: noteAmber)?
     .draw(in: rounded(noteRect, 10), angle: -70)
+NSGraphicsContext.restoreGraphicsState()
 
-NSShadow().set()
 // Ruled lines, as if something were written on it.
 ink.withAlphaComponent(0.13).setFill()
 for row in 0..<4 {
@@ -100,25 +101,32 @@ draw("Cute, funny notes that turn up on your Mac", at: NSPoint(x: 96, y: 300),
 draw("when you need them.", at: NSPoint(x: 96, y: 254),
      size: 34, weight: .regular, color: muted, tracking: -0.4)
 
-// A small notification, so the thing being offered is visible at a glance.
-let cardRect = NSRect(x: 96, y: 74, width: 620, height: 96)
-let cardShadow = NSShadow()
-cardShadow.shadowColor = NSColor.black.withAlphaComponent(0.12)
-cardShadow.shadowBlurRadius = 26
-cardShadow.shadowOffset = NSSize(width: 0, height: -8)
-cardShadow.set()
-NSColor.white.setFill()
-rounded(cardRect, 20).fill()
-NSShadow().set()
+// The real notification, screenshotted, rather than an imitation of one: this
+// card is the first thing anyone sees of the product.
+let bannerPath = "docs/note-dark.png"
+let bannerRect = NSRect(x: 92, y: 84, width: 620, height: 132)
 
-let iconRect = NSRect(x: 118, y: 96, width: 52, height: 52)
-NSGradient(starting: noteYellow, ending: noteAmber)?.draw(in: rounded(iconRect, 12), angle: -70)
-draw("📝", at: NSPoint(x: 129, y: 106), size: 30, weight: .regular, color: ink)
+// The shadow is cast by a rounded rect drawn underneath rather than by the
+// image itself: shadowing a bitmap traces its bounding box, which leaves a
+// grey rectangle poking out around the rounded corners. Save and restore the
+// graphics state to remove it afterwards -- a fresh NSShadow is not "no
+// shadow", it defaults to a third-opacity black one.
+NSGraphicsContext.saveGraphicsState()
+let bannerShadow = NSShadow()
+bannerShadow.shadowColor = NSColor.black.withAlphaComponent(0.22)
+bannerShadow.shadowBlurRadius = 28
+bannerShadow.shadowOffset = NSSize(width: 0, height: -9)
+bannerShadow.set()
+NSColor.black.setFill()
+rounded(bannerRect.insetBy(dx: 3, dy: 3), 27).fill()
+NSGraphicsContext.restoreGraphicsState()
 
-draw("Sticky Note", at: NSPoint(x: 188, y: 122), size: 19, weight: .semibold, color: ink)
-draw("The universe is chaos and you made a spreadsheet.", at: NSPoint(x: 188, y: 94),
-     size: 19, weight: .regular, color: muted)
-draw("🪐", at: NSPoint(x: 648, y: 104), size: 34, weight: .regular, color: ink)
+if let banner = NSImage(contentsOfFile: bannerPath) {
+    banner.draw(in: bannerRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+} else {
+    FileHandle.standardError.write("missing \(bannerPath)\n".data(using: .utf8)!)
+    exit(1)
+}
 
 draw("Free · open source · everything stays on your machine",
      at: NSPoint(x: 98, y: 30), size: 19, weight: .medium, color: muted)
