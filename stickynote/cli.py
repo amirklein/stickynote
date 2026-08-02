@@ -18,6 +18,7 @@ from . import (
     activity,
     ai,
     brew,
+    hooks,
     launchagent,
     messages,
     migrate,
@@ -434,6 +435,82 @@ def _set_app_icon(cfg: Config, value: str) -> int:
     return 0
 
 
+def cmd_event(args) -> int:
+    """Announce something an agent did. Invoked by hooks, not usually by hand."""
+    cfg = Config.load()
+    state = State.load()
+
+    # Hooks feed JSON on stdin. It is not needed, but draining it stops the
+    # caller seeing a broken pipe when this exits first.
+    if not sys.stdin.isatty():
+        try:
+            sys.stdin.read()
+        except OSError:
+            pass
+
+    if not cfg.enabled:
+        return 0
+    if cfg.hooks_respect_pause and state.paused_until:
+        if datetime.now().timestamp() < state.paused_until:
+            return 0
+
+    lines, badge = hooks.event_lines(args.kind)
+    if not lines:
+        print(f"unknown event kind {args.kind!r}", file=sys.stderr)
+        return 2
+
+    source = args.source or "your agent"
+    message = args.message or random.choice(lines).format(source=source)
+    title, badge = _compose(cfg, badge)
+
+    try:
+        notifier.send(title, message, cfg.sound, badge, cfg.linger_seconds)
+    except notifier.NotifyError as exc:
+        # A failure here must never look like a hook failure to the agent.
+        print(f"notify failed: {exc}", file=sys.stderr)
+    return 0
+
+
+def cmd_hooks(args) -> int:
+    catalogue = hooks.tools()
+
+    if args.action == "status":
+        for tool in catalogue.values():
+            state = "installed" if hooks.installed(tool.id) else "not installed"
+            where = tool.config if tool.config.exists() else f"{tool.config} (absent)"
+            print(f"{tool.name:<12} {state:<14} {where}")
+        if hooks.codex_feature_enabled() is False:
+            print("\nCodex has hooks switched off. To turn them on, add to")
+            print("~/.codex/config.toml:\n\n    [features]\n    hooks = true")
+        return 0
+
+    wanted = [args.tool] if args.tool else list(catalogue)
+    unknown = [t for t in wanted if t not in catalogue]
+    if unknown:
+        print(f"unknown tool(s): {', '.join(unknown)}. "
+              f"Try: {', '.join(catalogue)}", file=sys.stderr)
+        return 2
+
+    for tool_id in wanted:
+        tool = catalogue[tool_id]
+        changed, backup = (hooks.uninstall(tool_id) if args.action == "uninstall"
+                           else hooks.install(tool_id))
+        if not changed:
+            verb = "was not installed" if args.action == "uninstall" else "already installed"
+            print(f"{tool.name:<12} {verb}")
+            continue
+        print(f"{tool.name:<12} {args.action}ed in {tool.config}")
+        if backup:
+            print(f"{'':12} backed the old file up to {backup.name}")
+        if args.action == "install" and tool.note:
+            print(f"{'':12} {tool.note}")
+
+    if args.action == "install":
+        print("\nNotes will arrive when an agent finishes or needs you.")
+        print("Try it now with: stickynote event --source cursor --kind done")
+    return 0
+
+
 def cmd_ai(args) -> int:
     if args.action == "status":
         try:
@@ -758,6 +835,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     subs.add_parser("migrate", help="carry over an install of the old cheerbot")
 
+    hooks_cmd = subs.add_parser("hooks", help="notify me when a coding agent finishes")
+    hooks_cmd.add_argument(
+        "action", nargs="?", default="status",
+        choices=("install", "status", "uninstall"),
+    )
+    hooks_cmd.add_argument(
+        "tool", nargs="?", choices=sorted(hooks.tools()),
+        help="just this one, instead of all of them",
+    )
+
+    event = subs.add_parser("event", help="announce an agent event (run by hooks)")
+    event.add_argument("--source", help="which tool it came from")
+    event.add_argument("--kind", default="done", choices=("done", "waiting", "error"))
+    event.add_argument("-m", "--message", help="exact text, instead of a random one")
+
     ai_cmd = subs.add_parser("ai", help="connect a model for writing and translating")
     ai_cmd.add_argument(
         "action", nargs="?", default="login", choices=("login", "status", "logout"),
@@ -828,6 +920,8 @@ _HANDLERS = {
     "ai": cmd_ai,
     "brew": cmd_brew,
     "translate": cmd_translate,
+    "event": cmd_event,
+    "hooks": cmd_hooks,
     "demo": cmd_demo,
     "alerts": cmd_alerts,
     "now": cmd_now,

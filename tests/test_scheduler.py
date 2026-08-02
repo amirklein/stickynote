@@ -16,8 +16,8 @@ _TMP = tempfile.mkdtemp(prefix="stickynote-test-")
 os.environ["STICKYNOTE_HOME"] = _TMP
 
 from stickynote import (  # noqa: E402
-    activity, ai, brew, cli, messages, nativeapp, notifier, packs, paths,
-    scheduler, translate, wizard,
+    activity, ai, brew, cli, hooks, messages, nativeapp, notifier, packs,
+    paths, scheduler, translate, wizard,
 )
 from stickynote.config import Config, coerce  # noqa: E402
 from stickynote.state import State  # noqa: E402
@@ -488,6 +488,125 @@ class ConfigTests(unittest.TestCase):
         cfg = Config(title="Pep", min_minutes=5, active_days=[0, 4])
         cfg.save()
         self.assertEqual(Config.load().as_dict(), cfg.as_dict())
+
+
+class HookTests(unittest.TestCase):
+    """Someone else's hooks are not ours to overwrite."""
+
+    def setUp(self):
+        self.home = tempfile.mkdtemp(prefix="stickynote-home-")
+        self.original_home = os.environ.get("HOME")
+        os.environ["HOME"] = self.home
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        if self.original_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = self.original_home
+        shutil.rmtree(self.home, ignore_errors=True)
+
+    def config_for(self, tool_id):
+        return hooks.tools()[tool_id].config
+
+    def write(self, tool_id, data):
+        path = self.config_for(tool_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data))
+        return path
+
+    def read(self, tool_id):
+        return json.loads(self.config_for(tool_id).read_text())
+
+    def test_install_creates_a_config_that_did_not_exist(self):
+        for tool_id in hooks.tools():
+            with self.subTest(tool_id):
+                changed, _ = hooks.install(tool_id)
+                self.assertTrue(changed)
+                self.assertTrue(hooks.installed(tool_id))
+
+    def test_installing_twice_changes_nothing(self):
+        hooks.install("cursor")
+        first = self.config_for("cursor").read_text()
+        changed, _ = hooks.install("cursor")
+        self.assertFalse(changed)
+        self.assertEqual(self.config_for("cursor").read_text(), first)
+
+    def test_existing_hooks_are_left_alone(self):
+        self.write("cursor", {
+            "hooks": {
+                "afterFileEdit": [{"command": "/other/tool --hook"}],
+                "stop": [{"command": "/other/tool --stop"}],
+            }
+        })
+        hooks.install("cursor")
+        data = self.read("cursor")
+        self.assertEqual(data["hooks"]["afterFileEdit"], [{"command": "/other/tool --hook"}])
+        self.assertEqual(data["hooks"]["stop"][0], {"command": "/other/tool --stop"})
+        self.assertEqual(len(data["hooks"]["stop"]), 2)
+
+    def test_uninstall_removes_only_our_entry(self):
+        self.write("cursor", {"hooks": {"stop": [{"command": "/other/tool --stop"}]}})
+        hooks.install("cursor")
+        hooks.uninstall("cursor")
+        self.assertEqual(self.read("cursor")["hooks"]["stop"],
+                         [{"command": "/other/tool --stop"}])
+
+    def test_uninstall_leaves_no_empty_handler_group_behind(self):
+        hooks.install("claude")
+        hooks.uninstall("claude")
+        data = self.read("claude")
+        self.assertFalse(hooks.installed("claude"))
+        for groups in data.get("hooks", {}).values():
+            for group in groups:
+                self.assertTrue(group.get("hooks"), "an empty group was left behind")
+
+    def test_unrelated_settings_survive_a_round_trip(self):
+        self.write("claude", {"theme": "dark", "hooks": {}})
+        hooks.install("claude")
+        hooks.uninstall("claude")
+        self.assertEqual(self.read("claude")["theme"], "dark")
+
+    def test_the_old_file_is_backed_up_before_being_changed(self):
+        path = self.write("cursor", {"hooks": {"stop": [{"command": "/other"}]}})
+        _, backup = hooks.install("cursor")
+        self.assertIsNotNone(backup)
+        self.assertIn("/other", backup.read_text())
+        self.assertNotEqual(backup, path)
+
+    def test_claude_covers_finishing_and_waiting(self):
+        hooks.install("claude")
+        data = self.read("claude")
+        self.assertIn("Stop", data["hooks"])
+        self.assertIn("Notification", data["hooks"])
+
+    def test_the_command_survives_a_bare_environment(self):
+        """Hooks inherit almost nothing, so PATH and PYTHONPATH cannot be assumed."""
+        hooks.install("cursor")
+        command = self.read("cursor")["hooks"]["stop"][0]["command"]
+        self.assertIn("PYTHONPATH=", command)
+        self.assertTrue(command.split("PYTHONPATH=")[0] == "")
+        self.assertIn(str(paths.PACKAGE_ROOT.parent), command)
+
+    def test_a_corrupt_config_does_not_stop_an_install(self):
+        path = self.config_for("cursor")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{ this is not json")
+        changed, backup = hooks.install("cursor")
+        self.assertTrue(changed)
+        self.assertTrue(hooks.installed("cursor"))
+        self.assertIn("not json", backup.read_text())
+
+    def test_every_event_kind_has_lines_and_a_badge(self):
+        for kind in ("done", "waiting", "error"):
+            lines, badge = hooks.event_lines(kind)
+            self.assertTrue(lines, kind)
+            self.assertTrue(badge, kind)
+            for line in lines:
+                self.assertIn("{source}", line, f"{kind}: {line!r} names no source")
+
+    def test_an_unknown_event_kind_yields_nothing(self):
+        self.assertEqual(hooks.event_lines("celebrate"), ([], ""))
 
 
 class AITests(unittest.TestCase):
