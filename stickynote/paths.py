@@ -28,9 +28,6 @@ NOTIFIER_SOURCE = DATA / "notifier.swift"
 SETTINGS_SOURCE = DATA / "settings.swift"
 APPLESCRIPT_SOURCE = DATA / "notifier.applescript"
 
-# Flat pools, superseded by packs but still the fallback when a pack is missing.
-BUNDLED_MESSAGES = DATA / "messages.txt"
-BUNDLED_FUNNY = DATA / "messages-funny.txt"
 BUNDLED_EMOJI = DATA / "emoji.txt"
 
 # Names of the previous incarnation, kept only so migrate.py can find and

@@ -101,7 +101,7 @@ def tick(cfg: Config, state: State, now: datetime, deliver) -> TickResult:
         # you come back instead of being lost to an empty desk.
         return TickResult("idle", detail=activity.describe(cfg.max_idle_minutes))
 
-    message = messages.pick(messages.load(cfg.tone), state.recent)
+    message = messages.pick(messages.load(cfg.packs), state.recent)
     deliver(message)
 
     scheduled = next_fire_after(cfg, now)

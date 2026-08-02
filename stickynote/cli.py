@@ -20,11 +20,16 @@ from . import (
     migrate,
     nativeapp,
     notifier,
+    packs,
     paths,
     scheduler,
+    wizard,
 )
 from .config import Config, coerce
 from .state import State
+
+# Old tone names, still accepted by `config tone ...`.
+_TONE_ALIASES = {"funny": ["funny"], "sincere": ["sincere"], "mixed": ["funny", "sincere"]}
 
 _DURATION = re.compile(r"^(\d+(?:\.\d+)?)\s*([mhd])$", re.IGNORECASE)
 _IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".heic", ".tiff", ".tif", ".gif", ".icns")
@@ -101,7 +106,7 @@ def cmd_tick(_args) -> int:
 def cmd_now(args) -> int:
     cfg = _load_config()
     state = State.load()
-    message = args.message or messages.pick(messages.load(cfg.tone), state.recent)
+    message = args.message or messages.pick(messages.load(cfg.packs), state.recent)
     emoji = args.emoji if args.emoji is not None else messages.pick_emoji(cfg.emoji, state.last_emoji)
     title, badge = _compose(cfg, emoji)
     linger = args.linger if args.linger is not None else cfg.linger_seconds
@@ -155,16 +160,16 @@ def cmd_surprise(_args) -> int:
 def cmd_demo(args) -> int:
     """Fire a burst of notifications at random short gaps.
 
-    Exercises the real pipeline (tone, no-repeat, badge, activity gate) on a
+    Exercises the real pipeline (packs, no-repeat, badge, activity gate) on a
     timescale you can actually watch, without touching the schedule or stats.
     """
     cfg = _load_config()
     state = State.load()
-    pool = messages.load(cfg.tone)
+    pool = messages.load(cfg.packs)
     recent = list(state.recent)
     last_emoji = state.last_emoji
 
-    print(f"{args.count} notifications, {args.min}-{args.max}s apart, tone={cfg.tone}")
+    print(f"{args.count} notifications, {args.min}-{args.max}s apart, packs={'+'.join(cfg.packs)}")
     print("(this is a preview: the real schedule and counters are untouched)\n")
 
     for index in range(1, args.count + 1):
@@ -257,7 +262,8 @@ def cmd_status(_args) -> int:
         last = datetime.fromtimestamp(state.last_fire)
         print(f"last          {last:%a %d %b %H:%M} ({_humanize(now - last)} ago)")
     print(f"delivered     {state.fired_count}")
-    print(f"messages      {len(messages.load(cfg.tone))} ({cfg.tone}) from {messages.source_path(cfg.tone)}")
+    print(f"messages      {len(messages.load(cfg.packs))} from {messages.source_path(cfg.packs)}")
+    print(f"packs         {', '.join(cfg.packs)}")
     print(f"on screen     {_linger_label(cfg)}")
     if cfg.require_activity:
         print(f"activity      {activity.describe(cfg.max_idle_minutes)}, away after {cfg.max_idle_minutes:g}m")
@@ -424,8 +430,87 @@ def _set_app_icon(cfg: Config, value: str) -> int:
     return 0
 
 
+def cmd_setup(args) -> int:
+    if migrate.pending():
+        print("found an old cheerbot install, carrying it over first:")
+        for line in migrate.run():
+            print(f"  {line}")
+
+    if not wizard.interactive():
+        # Reached when the installer is piped through bash, which leaves stdin
+        # attached to the script rather than the terminal.
+        print("Sticky Note is installed. To choose a theme and rhythm, run:")
+        print()
+        print("    stickynote setup")
+        print()
+        return 0
+
+    cfg = Config.load()
+    try:
+        cfg = wizard.run(cfg, apply_icon=_set_app_icon, first_run=args.first_run)
+    except (EOFError, KeyboardInterrupt):
+        print("setup cancelled, nothing was changed")
+        return 1
+
+    try:
+        cfg.validate()
+    except ValueError as exc:
+        print(f"that combination does not work: {exc}", file=sys.stderr)
+        return 1
+    cfg.save()
+
+    wizard.heading("Ready")
+    for line in wizard.summarise(cfg):
+        print(f"  {line}")
+    print(f"\n  saved to {paths.config_path()}")
+
+    if args.first_run or wizard.ask_yes("\nStart it now?", default=True):
+        print()
+        return cmd_start(argparse.Namespace(no_app=False, applet=False))
+
+    print("\nrun `stickynote start` when you're ready")
+    return 0
+
+
+def cmd_packs(args) -> int:
+    cfg = Config.load()
+    catalogue = packs.available()
+
+    if args.use:
+        wanted = [p.strip().lower() for p in args.use.replace(",", " ").split()]
+        cfg.packs = wanted
+        try:
+            cfg.validate()
+        except ValueError as exc:
+            print(exc, file=sys.stderr)
+            return 2
+        cfg.save()
+        print(f"packs = {', '.join(cfg.packs)} ({len(messages.load(cfg.packs))} messages)")
+        return 0
+
+    for pack in catalogue.values():
+        mark = "*" if pack.id in cfg.packs else " "
+        origin = "bundled" if pack.bundled else "yours"
+        count = len(pack.messages())
+        print(f"{mark} {pack.id:<12} {count:>4} {pack.language}  {origin:<7} {pack.description}")
+
+    if paths.user_messages_path().exists():
+        print()
+        print(f"note: {paths.user_messages_path()} overrides every pack")
+    return 0
+
+
 def cmd_config(args) -> int:
     cfg = Config.load()
+
+    # `tone` was retired in favour of `packs`; accept it silently rather than
+    # making anyone with muscle memory look up the new name.
+    if args.key == "tone" and args.value is not None:
+        args = argparse.Namespace(
+            key="packs",
+            value=",".join(_TONE_ALIASES.get(args.value.strip().lower(), [args.value])),
+        )
+
     if args.key is None:
         for key, value in cfg.as_dict().items():
             print(f"{key:18} {value}")
@@ -453,7 +538,8 @@ def cmd_config(args) -> int:
         return _set_app_icon(cfg, args.value)
 
     cfg.save()
-    print(f"{args.key} = {getattr(cfg, args.key)}")
+    saved = getattr(cfg, args.key)
+    print(f"{args.key} = {', '.join(str(v) for v in saved) if isinstance(saved, list) else saved}")
 
     # Timing settings only take effect on the next schedule, so redo it now.
     if args.key in ("min_minutes", "max_minutes", "active_start", "active_end", "active_days"):
@@ -477,7 +563,7 @@ def _pool_command(args, entries, source, user_path) -> int:
             return
         user_path.parent.mkdir(parents=True, exist_ok=True)
         # Seed from what is currently in use rather than one bundled file, so
-        # the tone you are hearing is the tone you start editing.
+        # the voice you are hearing is the voice you start editing.
         user_path.write_text("\n".join(entries) + "\n", encoding="utf-8")
         print(f"seeded {user_path} with the {len(entries)} entries in use")
 
@@ -498,11 +584,11 @@ def _pool_command(args, entries, source, user_path) -> int:
 
 
 def cmd_messages(args) -> int:
-    tone = Config.load().tone
+    chosen = Config.load().packs
     return _pool_command(
         args,
-        messages.load(tone),
-        messages.source_path(tone),
+        messages.load(chosen),
+        messages.source_path(chosen),
         paths.user_messages_path(),
     )
 
@@ -542,7 +628,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     subs.add_parser("alerts", help="switch macOS to the longer-lasting alert style")
 
+    setup = subs.add_parser("setup", help="choose a theme, rhythm and icon")
+    setup.add_argument(
+        "--first-run", action="store_true",
+        help="greet the user and start the agent when done (used by the installer)",
+    )
+
     subs.add_parser("migrate", help="carry over an install of the old cheerbot")
+
+    pack_cmd = subs.add_parser("packs", help="list theme packs, or switch to others")
+    pack_cmd.add_argument(
+        "use", nargs="?",
+        help="comma-separated pack ids to draw from, e.g. funny,zen",
+    )
 
     demo = subs.add_parser("demo", help="watch a burst of notifications up close")
     demo.add_argument("-n", "--count", type=int, default=5, help="how many to send")
@@ -584,6 +682,8 @@ _HANDLERS = {
     "status": cmd_status,
     "surprise": cmd_surprise,
     "migrate": cmd_migrate,
+    "packs": cmd_packs,
+    "setup": cmd_setup,
     "demo": cmd_demo,
     "alerts": cmd_alerts,
     "now": cmd_now,

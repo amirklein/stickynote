@@ -15,6 +15,10 @@ def _parse_hhmm(value: str) -> time:
     return time(int(hours), int(minutes or 0))
 
 
+# What the retired `tone` setting used to mean.
+_TONES = {"funny": ["funny"], "sincere": ["sincere"], "mixed": ["funny", "sincere"]}
+
+
 @dataclass
 class Config:
     enabled: bool = True
@@ -47,9 +51,10 @@ class Config:
     # by the system after about five seconds no matter what. 0 leaves it up
     # until dismissed.
     linger_seconds: float = 15.0
-    # Which bundled message pool to draw from: "funny", "sincere" or "mixed".
-    # Ignored once you supply your own messages file.
-    tone: str = "funny"
+    # Which theme packs to draw from. Several can be mixed; duplicate lines
+    # across packs are collapsed. Ignored once you supply your own messages
+    # file. Supersedes the old `tone` setting, which is still read on load.
+    packs: List[str] = field(default_factory=lambda: ["funny"])
     # Hold notifications back unless someone is actually at the machine.
     require_activity: bool = True
     # How long without input counts as away.
@@ -69,6 +74,12 @@ class Config:
             raw = json.loads(path.read_text())
         except (OSError, ValueError):
             return cls()
+        # `tone` became `packs`. Translate rather than warn: a config written
+        # before the change should keep working without anyone being told to
+        # go and edit it.
+        if "packs" not in raw and "tone" in raw:
+            raw["packs"] = _TONES.get(str(raw["tone"]).strip().lower(), ["funny"])
+
         known = {f.name for f in fields(cls)}
         return cls(**{k: v for k, v in raw.items() if k in known})
 
@@ -92,9 +103,17 @@ class Config:
         allowed = ("auto", "badge", "title", "both", "off")
         if self.emoji_placement.strip().lower() not in allowed:
             raise ValueError(f"emoji_placement must be one of {', '.join(allowed)}")
-        tones = ("funny", "sincere", "mixed")
-        if self.tone.strip().lower() not in tones:
-            raise ValueError(f"tone must be one of {', '.join(tones)}")
+        if not self.packs:
+            raise ValueError("packs must name at least one theme pack")
+        from . import packs as packs_module
+
+        known = packs_module.available()
+        unknown = [p for p in self.packs if p not in known]
+        if unknown:
+            raise ValueError(
+                f"unknown pack(s): {', '.join(unknown)}. "
+                f"Available: {', '.join(sorted(known))}"
+            )
         if self.max_idle_minutes <= 0:
             raise ValueError("max_idle_minutes must be greater than 0")
         if self.linger_seconds < 0:
@@ -147,4 +166,6 @@ def coerce(field_name: str, raw: str) -> Any:
         return int(raw)
     if declared == "List[int]":
         return [int(part) for part in raw.replace(",", " ").split()]
+    if declared == "List[str]":
+        return [part.strip().lower() for part in raw.replace(",", " ").split()]
     return raw
