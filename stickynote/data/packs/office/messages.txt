@@ -101,83 +101,93 @@ Choose the thing that makes you more interesting, not just more employable.
 The room you want to be in will feel uncomfortable at first. That's how you know.
 Being underestimated is a temporary and quietly useful position.
 Ten years of small deposits and suddenly people call it talent.
-Performance review, condensed: you showed up, you tried, I've circled "exceeds expectations".
-I've decided to recognise you publicly. This notification is the public. Congratulations.
-There's no trophy for this, which I consider an oversight and intend to escalate.
-Management would like to acknowledge your effort. Management is me. Consider it acknowledged.
-I wrote "indispensable" next to your name on a form nobody will read. Still counts.
-You're doing the thing where you do the work and never mention it. So I'm mentioning it.
-Nobody called a meeting about how well that went, so this is the meeting.
-That belongs in the highlight reel. There is no highlight reel. There should be.
-You're the person other people quietly copy. Take it as the compliment it is.
-Good managers give specific praise. Specifically: that. That was good.
-Your work speaks for itself, but quietly, so I'm turning it up.
-Consider this your quarterly review. Verdict: strong. Meeting adjourned early.
-If we had an employee of the month here it would get repetitive fast.
-I can't authorise a raise, but I can authorise this sentence: excellent work.
-You handled that better than the people who trained you would have.
-Whatever you're avoiding is shorter than the meeting you sat through yesterday.
-In a building full of people performing busyness, you are actually busy. Rare and noted.
-A formal note of appreciation, delivered informally, the formal channel being broken.
-Teamwork makes the dream work, and today the team is mostly you. Big day for the dream.
-I've been told not to play favourites, so I'm playing them silently.
-Someone should put that on a plaque. Budget doesn't cover plaques. Picture it.
-You carry more than your job description admits. The description should be rewritten.
-Morale is a group project and you keep quietly doing the group's share.
-I'd describe your contribution as load bearing, which in this building means a lot.
-Big picture, you're fine. Small picture, also fine. Medium picture is honestly the best one.
-Not every day needs a debrief. This one gets a compliment instead.
-If there were a suggestion box, my suggestion would be more of whatever you just did.
-The org chart has no box for what you actually do. I've drawn one in pen.
-Nobody gets promoted for consistency, the single greatest failure of modern management.
-Your calendar is a crime scene and you're still producing. Impressive under the circumstances.
-I'd propose a toast, but it's a workday, so instead: well done.
-That was competent, and I mean competent as high praise, which in this economy it is.
-Everyone is winging it. You are winging it with unusual grace.
-You're allowed to be pleased about the thing before anybody else notices it.
-Let the minutes reflect that you showed up again. I keep the minutes. They reflect it.
-Someone would say this in person if the office weren't mostly headphones now.
-Some people manage up, some manage down. You just quietly manage.
-If leadership means doing the boring part reliably, congratulations, you're leadership.
-I've observed you for some time, in a professional and non-alarming way. You're good at this.
-There's an art to finishing things nobody thanks you for, and you have the art.
-Culture isn't the posters. It's whoever's still helping at four in the afternoon.
-You have the rare gift of not making things worse in a crisis. Enormous. Underrated.
-I'd nominate you for something if I knew of anything worth being nominated for.
-Between us, most of this place runs on people like you doing one more thing.
-The quarterly goals are made up. The work you did this morning is not.
-Onboarding never covers the hard part. You worked out the hard part regardless.
-You know that thing where somebody just handles it? You're the somebody this week.
-Ambition is loud, reliability is quiet, and reliability is what actually ships.
-I'm required to remind you to take a break. I'm not required to mean it, but I do.
-Nobody sends a company-wide email about steady excellent work. Consider this the email.
-On paper this is a job. In practice you've made it something people rely on.
-If effort showed up in the reporting, your dashboard would embarrass everyone else's.
-There was a version of this where you cut corners. You didn't. Noticed.
-Meetings could have been emails. Your work could not have been anyone else's.
-You are, and I say this professionally, extremely fine at your job.
-Bureaucracy exists to slow you down and you're moving anyway. Practically rebellious.
-Somebody will take credit for this eventually. Until then, take it yourself.
-Corporate wants you to align on synergies. I want you to drink some water.
-Being pleasant to work with is a skill, and it's on your permanent record. Favourably.
-You made a hard thing look routine, which is how hard things get underestimated.
-Today's objective is one useful thing, and you've probably already done it.
-I've reviewed the data. The data is vibes. The vibes are good.
-Long meeting? You survived it with your face neutral. That's a transferable skill.
-Anyone can start a project. You're the one still here in week six.
-There's no ceremony for finishing something small, so here's a small ceremony.
-A workplace is just people, and you're one of the good ones. That carries a room.
-You have earned the right to close the laptop at a reasonable hour. Exercise it.
-Your instinct on that was right, and you should trust it noticeably more often.
-I'd write you a reference right now, unprompted, and it would run long.
-Success is mostly showing up, and you've made showing up look nearly easy.
-The best people here never announce themselves, which makes praising them logistically hard.
-Consider yourself formally appreciated. Filing this under morale, ongoing.
-Everything urgent today will be forgotten by Thursday. Do the important one instead.
-You have a talent for making other people's jobs easier, and it shows in the quiet places.
-Right now this is a small business of one and you're the entire staff. Payroll approves.
-If they knew how much of this depends on you, they'd be nicer about the deadlines.
-Some careers are ladders. Some are doing good work until people notice. Both arrive.
-I've decided today is going well. I make these decisions around here. It's going well.
-You do not have to earn your lunch break. It comes free with the day.
-In conclusion, and I'll keep it brief because I know you're busy: good job.
+If they cut a documentary of this week, this is the part with the nice music.
+The camera crew got the whole thing. They only keep the good parts, and that was one.
+This is your talking-head segment. Say one kind thing about yourself. I'll wait.
+Somewhere a camera is slowly zooming in on your face. Give it something to work with.
+You did the thing and then looked at the camera. There's no camera. The look still counts.
+A crew has been filming you for years and you're still the one they root for.
+Cut to you, at your desk, quietly handling it. Roll credits.
+The documentary people would call this a turning point. They say that a lot, but still.
+As your boss, and more importantly your friend, and more importantly your boss: take the break.
+Conference room, five minutes. Agenda: you're doing well. It'll run long, for warmth.
+I prepared remarks about your progress. They're mostly the word "wow". I'll workshop it.
+I'm not going to make this weird. You're the best part of this branch. Okay, slightly weird.
+I printed you a certificate. The printer jammed. The sentiment survived intact.
+Today's mandatory seminar is cancelled. Summary: you're good at this, keep going, eat something.
+I'd get you a mug that says World's Best, but I own one and two feels excessive.
+I've decided to give a speech. Here it is: great job. Thank you, that was the speech.
+Everybody gather round. Nobody's here. Fine, just you then: nice work today.
+I want to be clear that I noticed. Not in a manager way. In a real way. Both ways.
+This is going in your file. Your file is a shoebox. It's a nice shoebox.
+I'm going to hug you professionally, from a distance, via notification.
+Beets don't plant themselves and neither does this. Get in the dirt.
+Identify the threat, neutralise the threat. Today's threat is the second thing on your list.
+In a survival situation you'd be among the first I'd recruit. Highest compliment available.
+Dirt does not care about your mood and still rewards showing up. Be like dirt about this.
+Rank your tasks by danger and do the dangerous one first. This is basic tactical planning.
+A farm at five in the morning has no opinion on motivation. It notices only whether you came.
+Promote yourself to Assistant Regional Manager of Getting This Done. Assistant to the Manager. Fine.
+Discipline is a muscle and you've been quietly at the gym for months now.
+Question: are you tired, or are you underfed and dramatic? Investigate honestly.
+The correct number of contingency plans is three. You have one and it's working. Better.
+Somebody put your stapler in gelatin, metaphorically. Free it and get on with the day.
+I'd prank you right now, but you're on a roll and I have real respect for the roll.
+Nothing is on fire, nobody moved your desk to the annex. A normal day. Enjoy one.
+The vending machine ate your money and you kept working. That's resilience, technically.
+You're getting an award tonight. Homemade, oddly specific category, and you earned it.
+Category: Most Improved At A Thing Nobody Noticed. The winner is you. Come on up.
+Award for Best Person To Sit Near. Uncontested. The trophy is a paper cup. The honour is real.
+There'll be a small ceremony later with terrible snacks, and you're the reason for it.
+The party planning committee approved a celebration. The committee is me. It's approved.
+Somebody will complain about the cake budget. Let them complain. Eat the cake.
+Yes, another birthday, yes, the same cake. Go stand near people for ten minutes anyway.
+Morale event proposal: finish the thing, then leave early. I'll expense the idea.
+HR would want this said in a formal setting. I'm saying it in a popup. You're doing well.
+Corporate is restructuring something somewhere. Not you, not today. Carry on.
+This branch survives on a handful of people who actually do the work. You're the handful.
+There's a form for this feeling. Nobody has ever filled it out. Just take the win.
+Downsizing rumours again. Historically the ones who do the work stay. Do the work anyway.
+Nobody dreams of selling paper, and yet the good ones make it look like a calling.
+You made the call you'd been dreading since Monday. That's the whole job, most days.
+Pick up the phone before you think about it. Thinking about it is the hard part.
+Small county, small office, small task. Do it well and the size stops mattering.
+The client isn't scary. They're a person in a worse chair than yours.
+A sale is being pleasant twice in a row, and you can absolutely be pleasant twice.
+The printer is broken. The printer is always broken. Your work isn't. Keep the distinction.
+You fixed a machine nobody else would touch. That's a personality, and a good one.
+If the fax machine can survive this office, so can you.
+You're allowed to want the other job. Sketch it on the back of a message pad first.
+Art school is expensive. Drawing your actual future on a legal pad is free. Start there.
+Being the person everyone talks to all day is a job, and you do it unpaid. Go rest.
+It isn't pretzel day, but you can go and get a pretzel anyway. That's the loophole.
+Do the crossword first if you need to. The order of operations is a personal decision.
+Watch the clock all you like. You still did the work. Both things are allowed.
+Whatever you spill today, someone has dropped a whole pot of chili on a worse carpet.
+You could carry it more carefully, or carry less. Both are legitimate strategies.
+The disaster got contained by whoever stayed calm, and once again that was you.
+You're building something nobody asked for and it's taking years. Those are the best projects.
+Your terrible screenplay is more than most people finish. Keep writing the terrible screenplay.
+Downstairs they lift heavy things all day and still clock out proud. Finish your shift.
+The people who move the actual boxes think you're all right. That is not nothing.
+Everyone starts as the temp. Some go to business school, some just quietly get good.
+You didn't know how to do this a year ago. Now you're the one they come and ask.
+Somebody in every office has no idea what's happening, and it still isn't you. Good sign.
+There's a man here who has coasted for thirty years and seems delighted. Options exist.
+Today's safety training: stand up, stretch, drink water, don't set anything on fire.
+Nobody put a cat in the ceiling this morning. Low bar, cleared. Good day so far.
+This is a job, technically. It's also where your days go, and you make it better.
+You'll miss these people eventually, which is a strange thing to feel about a workplace.
+Someone here would help you move apartments. Probably. It's that kind of place.
+The best thing about this job was never the job. Look around at four o'clock.
+You'll look back on this ordinary Tuesday fondly, which is insane, and also true.
+I love this branch. I've said too much. Anyway. Good work today.
+Sometimes a leader has to say the awkward supportive thing out loud. Consider it said.
+I'm going to be honest with you, which is what I say before being awkward: you're impressive.
+Do I have favourites? No. Is it you? Also no. But yes.
+I can't authorise ending the day early. I can authorise implying it.
+Ask the person. Say the thing. The worst outcome is a mildly weird Thursday.
+You've been quietly good at this for years and somebody has definitely noticed.
+Take the shot on the long thing. The receptionist married the salesman. It happens.
+Everybody is improvising in a beige room. You're improvising better than most of them.
+Whatever happens, you'll have handled it the way you'd want to see it on tape.
