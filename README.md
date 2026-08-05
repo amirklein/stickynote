@@ -74,10 +74,10 @@ A pack is a named set of notes. Five ship, and they can be mixed:
 
 | Pack | Notes | What it sounds like |
 | --- | --- | --- |
-| `funny` | 480 | Cosmic shrugs, office earnestness, gentle nagging about water |
+| `funny` | 640 | Cosmic shrugs, office earnestness, gentle nagging about water |
 | `sincere` | 102 | Straightforward encouragement, no jokes |
-| `cosmic` | 67 | Entropy, the multiverse, the cheerful kind of nihilism |
-| `office` | 100 | Workplace enthusiasm, deadpan asides, beet-farm discipline |
+| `cosmic` | 147 | Entropy, the multiverse, the cheerful kind of nihilism |
+| `office` | 180 | Workplace enthusiasm, deadpan asides, beet-farm discipline |
 | `zen` | 102 | Calm and unhurried, mostly about your body and your attention |
 
 ```bash
@@ -332,7 +332,7 @@ freshness like this:
 
 | Pool | Times you'd see each line per year | First possible repeat |
 | --- | --- | --- |
-| 480 (today) | ~15 | ~24 days |
+| 640 (today) | ~11 | ~32 days |
 | 1,000 | ~7 | ~7 weeks |
 | 10,000 | ~0.7 | ~1.4 years |
 | 1,000,000 | ~0.007 | ~137 years |
